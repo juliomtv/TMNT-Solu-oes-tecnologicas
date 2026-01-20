@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Agendar meu Horário</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="formAgendamento">
+                    <div class="mb-3">
+                        <label class="form-label">Seu Nome</label>
+                        <input type="text" name="nome" class="form-control" placeholder="Como quer ser chamado?" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Seu Telefone (WhatsApp)</label>
+                        <input type="text" name="telefone" class="form-control" placeholder="(00) 00000-0000" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Escolha o Serviço</label>
+                        <select name="servico_id" class="form-select" required>
+                            {% for servico in servicos %}
+                            <option value="{{ servico.id }}">{{ servico.nome }} - R$ {{ "%.2f"|format(servico.preco) }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Data</label>
+                            <input type="date" name="data" id="data_agendamento" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Horário Disponível</label>
+                            <select name="horario" id="horario_agendamento" class="form-select" required disabled>
+                                <option value="">Selecione a data primeiro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-grid mt-3">
+                        <button type="submit" class="btn btn-success btn-lg">Confirmar Agendamento</button>
+                        <a href="{{ url_for('home_cliente') }}" class="btn btn-link">Voltar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dataInput = document.getElementById('data_agendamento');
+    const horarioSelect = document.getElementById('horario_agendamento');
+    
+    const abertura = "{{ config.horario_abertura }}";
+    const fechamento = "{{ config.horario_fechamento }}";
+    const intervalo = parseInt("{{ config.intervalo_minutos }}");
+
+    const hoje = new Date().toISOString().split('T')[0];
+    dataInput.setAttribute('min', hoje);
+
+    dataInput.addEventListener('change', function() {
+        if (this.value) {
+            horarioSelect.disabled = true;
+            horarioSelect.innerHTML = '<option value="">Carregando horários...</option>';
+            
+            // Busca horários ocupados no servidor
+            fetch(`/api/horarios_ocupados?data=${this.value}`)
+                .then(response => response.json())
+                .then(horariosOcupados => {
+                    gerarHorarios(horariosOcupados);
+                    horarioSelect.disabled = false;
+                })
+                .catch(err => {
+                    console.error("Erro ao buscar horários:", err);
+                    alert("Erro ao carregar horários. Tente novamente.");
+                });
+        } else {
+            horarioSelect.disabled = true;
+        }
+    });
+
+    function gerarHorarios(ocupados) {
+        horarioSelect.innerHTML = '<option value="">Escolha um horário</option>';
+        
+        let [hAbertura, mAbertura] = abertura.split(':').map(Number);
+        let [hFechamento, mFechamento] = fechamento.split(':').map(Number);
+        
+        let atual = new Date();
+        atual.setHours(hAbertura, mAbertura, 0, 0);
+        
+        let fim = new Date();
+        fim.setHours(hFechamento, mFechamento, 0, 0);
+
+        const dataSelecionada = new Date(dataInput.value + 'T00:00:00');
+        const agora = new Date();
+        const ehHoje = dataSelecionada.toDateString() === agora.toDateString();
+
+        while (atual <= fim) {
+            let h = String(atual.getHours()).padStart(2, '0');
+            let m = String(atual.getMinutes()).padStart(2, '0');
+            let horarioTexto = `${h}:${m}`;
+            
+            // Verifica se o horário está na lista de ocupados
+            const estaOcupado = ocupados.includes(horarioTexto);
+            
+            if (!estaOcupado) {
+                if (!ehHoje || atual > agora) {
+                    let option = document.createElement('option');
+                    option.value = horarioTexto;
+                    option.textContent = horarioTexto;
+                    horarioSelect.appendChild(option);
+                }
+            }
+            
+            atual.setMinutes(atual.getMinutes() + intervalo);
+        }
+        
+        if (horarioSelect.options.length === 1) {
+            horarioSelect.innerHTML = '<option value="">Nenhum horário disponível para este dia</option>';
+        }
+    }
+});
+</script>
+{% endblock %}

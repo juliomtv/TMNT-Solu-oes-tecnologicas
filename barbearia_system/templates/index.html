@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2>Agenda de Hoje - {{ datetime.now().strftime('%d/%m/%Y') }}</h2>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('novo_agendamento') }}" class="btn btn-primary">Novo Agendamento</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Horário</th>
+                        <th>Cliente</th>
+                        <th>Serviço</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for agendamento in agendamentos %}
+                    <tr>
+                        <td>{{ agendamento.data_hora.strftime('%H:%M') }}</td>
+                        <td>{{ agendamento.cliente.nome }}</td>
+                        <td>{{ agendamento.servico.nome }}</td>
+                        <td>
+                            <span class="badge {% if agendamento.status == 'Pendente' %}bg-warning{% elif agendamento.status == 'Concluído' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ agendamento.status }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if agendamento.status == 'Pendente' %}
+                            <a href="{{ url_for('concluir_agendamento', id=agendamento.id) }}" class="btn btn-sm btn-success">Concluir</a>
+                            <a href="{{ url_for('cancelar_agendamento_admin', id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Cancelar este agendamento?')">Cancelar</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">Nenhum agendamento para hoje.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8 text-center">
+        <h1 class="display-4 mb-4">Bem-vindo à {{ config.nome_barbearia }}</h1>
+        <p class="lead mb-5">Agende seu corte de forma rápida e fácil.</p>
+        
+        <div class="row mb-5">
+            <div class="col-md-6 offset-md-3">
+                <div class="card bg-dark text-white p-4">
+                    <h3>Nossos Serviços</h3>
+                    <ul class="list-unstyled mt-3">
+                        {% for servico in servicos %}
+                        <li class="mb-2">{{ servico.nome }} - <strong>R$ {{ "%.2f"|format(servico.preco) }}</strong></li>
+                        {% endfor %}
+                    </ul>
+                    <a href="{{ url_for('agendar_cliente') }}" class="btn btn-primary btn-lg mt-3">Agendar Agora</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-muted">
+            <p>Horário de Funcionamento: {{ config.horario_abertura }} às {{ config.horario_fechamento }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

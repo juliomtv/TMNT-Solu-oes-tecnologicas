@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2>Gestão de Clientes</h2>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('novo_cliente') }}" class="btn btn-primary">Cadastrar Cliente</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Telefone</th>
+                        <th>Cortes Totais</th>
+                        <th>Pontos Fidelidade</th>
+                        <th>Status Fidelidade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cliente in clientes %}
+                    <tr>
+                        <td>{{ cliente.nome }}</td>
+                        <td>{{ cliente.telefone }}</td>
+                        <td>{{ cliente.cortes_realizados }}</td>
+                        <td>{{ cliente.fidelidade_pontos }}/10</td>
+                        <td>
+                            <div class="progress" style="height: 20px;">
+                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ (cliente.fidelidade_pontos / 10) * 100 }}%">
+                                    {{ (cliente.fidelidade_pontos / 10) * 100 }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('excluir_cliente', id=cliente.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja excluir este cliente e todo o histórico?')">Excluir</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

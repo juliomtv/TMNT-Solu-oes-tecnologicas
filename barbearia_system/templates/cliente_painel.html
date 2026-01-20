@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2>Olá, {{ cliente.nome }}!</h2>
+        <p class="lead">Aqui você pode acompanhar seus agendamentos e histórico.</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white text-center p-3">
+            <h4>Cortes Realizados</h4>
+            <h2 class="display-4">{{ cliente.cortes_realizados }}</h2>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white text-center p-3">
+            <h4>Pontos Fidelidade</h4>
+            <h2 class="display-4">{{ cliente.fidelidade_pontos }}/10</h2>
+            <small>A cada 10 cortes, o próximo é grátis!</small>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">Meus Agendamentos</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Serviço</th>
+                        <th>Preço</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for agendamento in agendamentos %}
+                    <tr>
+                        <td>{{ agendamento.data_hora.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>{{ agendamento.servico.nome }}</td>
+                        <td>R$ {{ "%.2f"|format(agendamento.servico.preco) }}</td>
+                        <td>
+                            <span class="badge {% if agendamento.status == 'Pendente' %}bg-warning{% elif agendamento.status == 'Concluído' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ agendamento.status }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if agendamento.status == 'Pendente' %}
+                            <a href="{{ url_for('cancelar_agendamento_cliente', id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja cancelar seu agendamento?')">Cancelar</a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">Você ainda não possui agendamentos.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4 text-center">
+    <a href="{{ url_for('agendar_cliente') }}" class="btn btn-primary btn-lg">Fazer Novo Agendamento</a>
+</div>
+{% endblock %}

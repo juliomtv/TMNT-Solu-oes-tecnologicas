@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Novo Agendamento</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente</label>
+                        <select name="cliente_id" class="form-select" required>
+                            <option value="">Selecione um cliente</option>
+                            {% for cliente in clientes %}
+                            <option value="{{ cliente.id }}">{{ cliente.nome }} ({{ cliente.telefone }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Não encontrou o cliente? <a href="{{ url_for('novo_cliente') }}">Cadastre aqui</a>.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Serviço</label>
+                        <select name="servico_id" class="form-select" required>
+                            {% for servico in servicos %}
+                            <option value="{{ servico.id }}">{{ servico.nome }} - R$ {{ "%.2f"|format(servico.preco) }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Data e Horário</label>
+                        <input type="datetime-local" name="data_hora" class="form-control" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Confirmar Agendamento</button>
+                        <a href="{{ url_for('index') }}" class="btn btn-link">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
