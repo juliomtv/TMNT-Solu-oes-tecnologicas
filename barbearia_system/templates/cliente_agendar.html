@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const abertura = "{{ config.horario_abertura }}";
     const fechamento = "{{ config.horario_fechamento }}";
     const intervalo = parseInt("{{ config.intervalo_minutos }}");
+    const slug = "{{ config.slug }}";
 
     const hoje = new Date().toISOString().split('T')[0];
     dataInput.setAttribute('min', hoje);
@@ -67,7 +68,7 @@ document.addEventListener('DOMContentLoaded', function() {
             horarioSelect.innerHTML = '<option value="">Carregando horários...</option>';
             
             // Busca horários ocupados no servidor
-            fetch(`/api/horarios_ocupados?data=${this.value}`)
+            fetch(`/api/${slug}/horarios_ocupados?data=${this.value}`)
                 .then(response => response.json())
                 .then(horariosOcupados => {
                     gerarHorarios(horariosOcupados);

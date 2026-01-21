@@ -6,7 +6,7 @@
         <h2>Histórico de Agendamentos</h2>
     </div>
     <div class="col-md-4 text-end">
-        <a href="{{ url_for('novo_agendamento') }}" class="btn btn-primary">Novo Agendamento</a>
+        <a href="{{ url_for('novo_agendamento', slug=config.slug) }}" class="btn btn-primary">Novo Agendamento</a>
     </div>
 </div>
 
@@ -38,21 +38,21 @@
                         </td>
                         <td>
                             {% if agendamento.status == 'Pendente' %}
-                            <a href="{{ url_for('confirmar_agendamento', id=agendamento.id) }}" class="btn btn-sm btn-success">Confirmar</a>
+                            <a href="{{ url_for('confirmar_agendamento', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-success">Confirmar</a>
                             <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal{{ agendamento.id }}">
                                 Alterar Data
                             </button>
-                            <a href="{{ url_for('cancelar_agendamento_admin', id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja cancelar?')">Cancelar</a>
+                            <a href="{{ url_for('cancelar_agendamento_admin', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja cancelar?')">Cancelar</a>
                             {% elif agendamento.status == 'Confirmado' %}
-                            <a href="{{ url_for('concluir_agendamento', id=agendamento.id) }}" class="btn btn-sm btn-info">Concluir Corte</a>
-                            <a href="{{ url_for('cancelar_agendamento_admin', id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja cancelar?')">Cancelar</a>
+                            <a href="{{ url_for('concluir_agendamento', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-info">Concluir Corte</a>
+                            <a href="{{ url_for('cancelar_agendamento_admin', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja cancelar?')">Cancelar</a>
                             {% endif %}
 
                             <!-- Modal Alterar Data -->
                             <div class="modal fade" id="editModal{{ agendamento.id }}" tabindex="-1">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
-                                        <form action="{{ url_for('alterar_data_agendamento', id=agendamento.id) }}" method="POST">
+                                        <form action="{{ url_for('alterar_data_agendamento', slug=config.slug, id=agendamento.id) }}" method="POST">
                                             <div class="modal-header">
                                                 <h5 class="modal-title">Alterar Data/Hora</h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

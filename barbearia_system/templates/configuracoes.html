@@ -17,9 +17,9 @@
                         <label class="form-label">Link da Barbearia (Slug)</label>
                         <div class="input-group">
                             <span class="input-group-text">/</span>
-                            <input type="text" name="slug" class="form-control" value="{{ config.slug }}" placeholder="ex: minha-barbearia">
+                            <input type="text" name="slug" class="form-control" value="{{ config.slug }}" readonly>
                         </div>
-                        <small class="text-muted">Este é o nome que aparecerá na URL (ex: seu-site.com/minha-barbearia).</small>
+                        <small class="text-muted">O slug não pode ser alterado após a criação para manter a integridade dos links.</small>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -61,7 +61,7 @@
                             {{ servico.nome }}
                             <span class="badge bg-primary rounded-pill ms-2">R$ {{ "%.2f"|format(servico.preco) }}</span>
                         </div>
-                        <a href="{{ url_for('excluir_servico', id=servico.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir este serviço?')">×</a>
+                        <a href="{{ url_for('excluir_servico', slug=config.slug, id=servico.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir este serviço?')">×</a>
                     </li>
                     {% endfor %}
                 </ul>
@@ -74,7 +74,7 @@
 <div class="modal fade" id="modalServico" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form action="{{ url_for('novo_servico') }}" method="POST">
+            <form action="{{ url_for('novo_servico', slug=config.slug) }}" method="POST">
                 <div class="modal-header">
                     <h5 class="modal-title">Adicionar Novo Serviço</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
