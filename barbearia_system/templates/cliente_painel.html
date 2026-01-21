@@ -53,7 +53,7 @@
                         </td>
                         <td>
                             {% if agendamento.status == 'Pendente' %}
-                            <a href="{{ url_for('cancelar_agendamento_cliente', id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja cancelar seu agendamento?')">Cancelar</a>
+                            <a href="{{ url_for('cancelar_agendamento_cliente', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja cancelar seu agendamento?')">Cancelar</a>
                             {% else %}
                             -
                             {% endif %}
@@ -71,6 +71,6 @@
 </div>
 
 <div class="mt-4 text-center">
-    <a href="{{ url_for('agendar_cliente') }}" class="btn btn-primary btn-lg">Fazer Novo Agendamento</a>
+    <a href="{{ url_for('agendar_cliente', slug=config.slug) }}" class="btn btn-primary btn-lg">Fazer Novo Agendamento</a>
 </div>
 {% endblock %}

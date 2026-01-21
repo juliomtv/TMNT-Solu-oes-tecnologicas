@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma de Barbearias</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding-top: 50px; }
+        .barbearia-card { transition: transform 0.2s; cursor: pointer; text-decoration: none; color: inherit; }
+        .barbearia-card:hover { transform: translateY(-5px); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row mb-5 align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-4">Nossas Barbearias</h1>
+                <p class="lead text-muted">Selecione uma unidade para agendar seu atendimento.</p>
+            </div>
+            {% if current_user.is_authenticated and current_user.is_superadmin %}
+            <div class="col-md-4 text-end">
+                <a href="{{ url_for('cadastrar_barbearia') }}" class="btn btn-success btn-lg">+ Nova Barbearia</a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="text-end mb-3">
+            {% if not current_user.is_authenticated %}
+            <a href="{{ url_for('login', slug='sistema') }}" class="btn btn-sm btn-outline-secondary">Login Super Admin</a>
+            {% else %}
+            <span class="badge bg-dark">Logado como: {{ current_user.username }}</span>
+            <a href="{{ url_for('logout', slug='sistema') if current_user.barbearia_id else url_for('logout', slug='sistema') }}" class="btn btn-sm btn-link text-danger">Sair</a>
+            {% endif %}
+        </div>
+
+        <div class="row g-4">
+            {% for b in barbearias if b.slug != 'sistema' %}
+            <div class="col-md-4">
+                <a href="{{ url_for('home_cliente', slug=b.slug) }}" class="card h-100 barbearia-card border-0 shadow-sm">
+                    <div class="card-body p-4 text-center">
+                        <div class="mb-3">
+                            <span class="badge bg-primary">Unidade Ativa</span>
+                        </div>
+                        <h3 class="card-title">{{ b.nome }}</h3>
+                        <p class="text-muted">Link: /{{ b.slug }}</p>
+                        <div class="btn btn-outline-primary mt-2">Acessar Unidade</div>
+                    </div>
+                </a>
+            </div>
+            {% else %}
+            <div class="col-12 text-center py-5">
+                <p class="text-muted fs-4">Nenhuma barbearia cadastrada ainda.</p>
+                <a href="{{ url_for('cadastrar_barbearia') }}" class="btn btn-primary">Cadastrar a Primeira Unidade</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

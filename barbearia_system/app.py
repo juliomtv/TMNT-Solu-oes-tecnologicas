@@ -59,6 +59,7 @@ class Agendamento(db.Model):
 class Configuracao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome_barbearia = db.Column(db.String(100), default='Minha Barbearia')
+    slug = db.Column(db.String(100), unique=True, nullable=False, default='minha-barbearia')
     horario_abertura = db.Column(db.String(5), default='09:00')
     horario_fechamento = db.Column(db.String(5), default='19:00')
     intervalo_minutos = db.Column(db.Integer, default=30)
@@ -67,7 +68,7 @@ class Configuracao(db.Model):
 with app.app_context():
     db.create_all()
     if not Configuracao.query.first():
-        config = Configuracao()
+        config = Configuracao(nome_barbearia='Minha Barbearia', slug='minha-barbearia')
         db.session.add(config)
         db.session.commit()
     
@@ -113,6 +114,7 @@ def horarios_ocupados():
 # Rotas de Autenticação Admin
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    config = Configuracao.query.first()
     if current_user.is_authenticated and getattr(current_user, 'is_admin', False):
         return redirect(url_for('index'))
     if request.method == 'POST':
@@ -123,7 +125,7 @@ def login():
             login_user(user)
             return redirect(url_for('index'))
         flash('Usuário ou senha inválidos', 'danger')
-    return render_template('login.html')
+    return render_template('login.html', config=config)
 
 @app.route('/logout')
 @login_required
@@ -132,58 +134,60 @@ def logout():
     return redirect(url_for('login'))
 
 # --- ÁREA DO CLIENTE ---
-@app.route('/login_cliente', methods=['GET', 'POST'])
-def login_cliente():
+@app.route('/<slug>/login_cliente', methods=['GET', 'POST'])
+def login_cliente(slug):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
     if current_user.is_authenticated and not getattr(current_user, 'is_admin', False):
-        return redirect(url_for('cliente_painel'))
+        return redirect(url_for('cliente_painel', slug=slug))
     if request.method == 'POST':
         telefone = request.form.get('telefone')
         cliente = Cliente.query.filter_by(telefone=telefone).first()
         if cliente:
             login_user(cliente)
-            return redirect(url_for('cliente_painel'))
+            return redirect(url_for('cliente_painel', slug=slug))
         else:
             flash('Número não encontrado. Faça um agendamento primeiro!', 'warning')
-            return redirect(url_for('agendar_cliente'))
-    return render_template('cliente_login.html')
+            return redirect(url_for('agendar_cliente', slug=slug))
+    return render_template('cliente_login.html', config=config)
 
-@app.route('/cliente/painel')
+@app.route('/<slug>/cliente/painel')
 @login_required
-def cliente_painel():
+def cliente_painel(slug):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
     if getattr(current_user, 'is_admin', False):
         return redirect(url_for('index'))
     agendamentos = Agendamento.query.filter_by(cliente_id=current_user.id).order_by(Agendamento.data_hora.desc()).all()
-    return render_template('cliente_painel.html', cliente=current_user, agendamentos=agendamentos)
+    return render_template('cliente_painel.html', cliente=current_user, agendamentos=agendamentos, config=config)
 
-@app.route('/cliente/cancelar/<int:id>')
+@app.route('/<slug>/cliente/cancelar/<int:id>')
 @login_required
-def cancelar_agendamento_cliente(id):
+def cancelar_agendamento_cliente(slug, id):
     agendamento = Agendamento.query.get_or_404(id)
     if agendamento.cliente_id != current_user.id:
         flash('Acesso negado.', 'danger')
-        return redirect(url_for('cliente_painel'))
+        return redirect(url_for('cliente_painel', slug=slug))
     if agendamento.status in ['Pendente', 'Confirmado']:
         agendamento.status = 'Cancelado'
         db.session.commit()
         flash('Agendamento cancelado com sucesso.', 'success')
     else:
         flash('Este agendamento não pode mais ser cancelado.', 'warning')
-    return redirect(url_for('cliente_painel'))
+    return redirect(url_for('cliente_painel', slug=slug))
 
-@app.route('/logout_cliente')
-def logout_cliente():
+@app.route('/<slug>/logout_cliente')
+def logout_cliente(slug):
     logout_user()
-    return redirect(url_for('home_cliente'))
+    return redirect(url_for('home_cliente', slug=slug))
 
-@app.route('/')
-def home_cliente():
+@app.route('/<slug>')
+def home_cliente(slug):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
     servicos = Servico.query.all()
-    config = Configuracao.query.first()
     return render_template('cliente_home.html', servicos=servicos, config=config)
 
-@app.route('/agendar_cliente', methods=['GET', 'POST'])
-def agendar_cliente():
-    config = Configuracao.query.first()
+@app.route('/<slug>/agendar', methods=['GET', 'POST'])
+def agendar_cliente(slug):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
     if request.method == 'POST':
         nome = request.form.get('nome')
         telefone = request.form.get('telefone')
@@ -196,14 +200,14 @@ def agendar_cliente():
             data_hora = datetime.strptime(data_hora_str, '%Y-%m-%d %H:%M')
         except:
             flash('Data ou horário inválidos.', 'danger')
-            return redirect(url_for('agendar_cliente'))
+            return redirect(url_for('agendar_cliente', slug=slug))
 
         cliente_existente_nome = Cliente.query.filter_by(nome=nome).first()
         cliente_existente_tel = Cliente.query.filter_by(telefone=telefone).first()
 
         if cliente_existente_nome and (not cliente_existente_tel or cliente_existente_tel.nome != nome):
             flash('Já existe um cliente cadastrado com este nome.', 'danger')
-            return redirect(url_for('agendar_cliente'))
+            return redirect(url_for('agendar_cliente', slug=slug))
 
         conflito = Agendamento.query.filter(
             Agendamento.data_hora == data_hora,
@@ -212,7 +216,7 @@ def agendar_cliente():
         
         if conflito:
             flash('Este horário já foi reservado. Por favor, escolha outro.', 'danger')
-            return redirect(url_for('agendar_cliente'))
+            return redirect(url_for('agendar_cliente', slug=slug))
 
         cliente = cliente_existente_tel
         if not cliente:
@@ -226,7 +230,7 @@ def agendar_cliente():
         flash('Agendamento solicitado! Aguarde a confirmação do barbeiro.', 'success')
         
         login_user(cliente)
-        return redirect(url_for('cliente_painel'))
+        return redirect(url_for('cliente_painel', slug=slug))
 
     servicos = Servico.query.all()
     return render_template('cliente_agendar.html', servicos=servicos, config=config)
@@ -235,8 +239,9 @@ def agendar_cliente():
 @app.route('/admin')
 @login_required
 def index():
+    config = Configuracao.query.first()
     if not getattr(current_user, 'is_admin', False):
-        return redirect(url_for('cliente_painel'))
+        return redirect(url_for('cliente_painel', slug=config.slug))
     
     hoje = datetime.now().date()
     agendamentos = Agendamento.query.filter(
@@ -247,28 +252,46 @@ def index():
         )
     ).order_by(Agendamento.data_hora).all()
     
-    return render_template('index.html', agendamentos=agendamentos, datetime=datetime)
+    return render_template('index.html', agendamentos=agendamentos, datetime=datetime, config=config)
 
 @app.route('/admin/agendamentos')
 @login_required
 def listar_agendamentos():
+    config = Configuracao.query.first()
     if not getattr(current_user, 'is_admin', False):
-        return redirect(url_for('home_cliente'))
+        return redirect(url_for('home_cliente', slug=config.slug))
     agendamentos = Agendamento.query.order_by(Agendamento.data_hora.desc()).all()
-    return render_template('agendamentos.html', agendamentos=agendamentos)
+    return render_template('agendamentos.html', agendamentos=agendamentos, config=config)
 
 @app.route('/admin/agendamento/novo', methods=['GET', 'POST'])
 @login_required
 def novo_agendamento():
+    config = Configuracao.query.first()
     if not getattr(current_user, 'is_admin', False):
-        return redirect(url_for('home_cliente'))
-    return redirect(url_for('agendar_cliente'))
+        return redirect(url_for('home_cliente', slug=config.slug))
+    
+    if request.method == 'POST':
+        cliente_id = request.form.get('cliente_id')
+        servico_id = request.form.get('servico_id')
+        data_hora_str = request.form.get('data_hora')
+        data_hora = datetime.strptime(data_hora_str, '%Y-%m-%dT%H:%M')
+        
+        novo = Agendamento(cliente_id=cliente_id, servico_id=servico_id, data_hora=data_hora, status='Confirmado')
+        db.session.add(novo)
+        db.session.commit()
+        flash('Agendamento realizado com sucesso!', 'success')
+        return redirect(url_for('index'))
+        
+    clientes = Cliente.query.all()
+    servicos = Servico.query.all()
+    return render_template('agendamento_form.html', clientes=clientes, servicos=servicos, config=config)
 
 @app.route('/admin/agendamento/alterar/<int:id>', methods=['POST'])
 @login_required
 def alterar_data_agendamento(id):
+    config = Configuracao.query.first()
     if not getattr(current_user, 'is_admin', False):
-        return redirect(url_for('home_cliente'))
+        return redirect(url_for('home_cliente', slug=config.slug))
     agendamento = Agendamento.query.get_or_404(id)
     nova_data_str = request.form.get('nova_data_hora')
     try:
@@ -283,7 +306,9 @@ def alterar_data_agendamento(id):
 @app.route('/agendamento/confirmar/<int:id>')
 @login_required
 def confirmar_agendamento(id):
-    if not getattr(current_user, 'is_admin', False): return redirect(url_for('home_cliente'))
+    config = Configuracao.query.first()
+    if not getattr(current_user, 'is_admin', False): 
+        return redirect(url_for('home_cliente', slug=config.slug))
     agendamento = Agendamento.query.get_or_404(id)
     agendamento.status = 'Confirmado'
     db.session.commit()
@@ -293,7 +318,9 @@ def confirmar_agendamento(id):
 @app.route('/agendamento/concluir/<int:id>')
 @login_required
 def concluir_agendamento(id):
-    if not getattr(current_user, 'is_admin', False): return redirect(url_for('home_cliente'))
+    config = Configuracao.query.first()
+    if not getattr(current_user, 'is_admin', False): 
+        return redirect(url_for('home_cliente', slug=config.slug))
     agendamento = Agendamento.query.get_or_404(id)
     if agendamento.status != 'Concluído':
         agendamento.status = 'Concluído'
@@ -310,7 +337,9 @@ def concluir_agendamento(id):
 @app.route('/agendamento/cancelar_admin/<int:id>')
 @login_required
 def cancelar_agendamento_admin(id):
-    if not getattr(current_user, 'is_admin', False): return redirect(url_for('home_cliente'))
+    config = Configuracao.query.first()
+    if not getattr(current_user, 'is_admin', False): 
+        return redirect(url_for('home_cliente', slug=config.slug))
     agendamento = Agendamento.query.get_or_404(id)
     agendamento.status = 'Cancelado'
     db.session.commit()
@@ -320,15 +349,18 @@ def cancelar_agendamento_admin(id):
 @app.route('/clientes')
 @login_required
 def listar_clientes():
-    if not getattr(current_user, 'is_admin', False): return redirect(url_for('home_cliente'))
+    config = Configuracao.query.first()
+    if not getattr(current_user, 'is_admin', False): 
+        return redirect(url_for('home_cliente', slug=config.slug))
     clientes = Cliente.query.all()
-    return render_template('clientes.html', clientes=clientes)
+    return render_template('clientes.html', clientes=clientes, config=config)
 
 @app.route('/admin/cliente/novo', methods=['GET', 'POST'])
 @login_required
 def novo_cliente():
+    config = Configuracao.query.first()
     if not getattr(current_user, 'is_admin', False):
-        return redirect(url_for('home_cliente'))
+        return redirect(url_for('home_cliente', slug=config.slug))
     
     if request.method == 'POST':
         nome = request.form.get('nome')
@@ -344,16 +376,18 @@ def novo_cliente():
             flash('Cliente cadastrado com sucesso!', 'success')
             return redirect(url_for('listar_clientes'))
             
-    return render_template('cliente_form.html')
+    return render_template('cliente_form.html', config=config)
 
 @app.route('/configuracoes', methods=['GET', 'POST'])
 @login_required
 def configuracoes():
-    if not getattr(current_user, 'is_admin', False): return redirect(url_for('home_cliente'))
     config = Configuracao.query.first()
+    if not getattr(current_user, 'is_admin', False): 
+        return redirect(url_for('home_cliente', slug=config.slug))
     servicos = Servico.query.all()
     if request.method == 'POST':
         config.nome_barbearia = request.form.get('nome_barbearia')
+        config.slug = request.form.get('slug')
         config.horario_abertura = request.form.get('horario_abertura')
         config.horario_fechamento = request.form.get('horario_fechamento')
         config.intervalo_minutos = int(request.form.get('intervalo_minutos', 30))
@@ -365,7 +399,9 @@ def configuracoes():
 @app.route('/servico/novo', methods=['POST'])
 @login_required
 def novo_servico():
-    if not getattr(current_user, 'is_admin', False): return redirect(url_for('home_cliente'))
+    config = Configuracao.query.first()
+    if not getattr(current_user, 'is_admin', False): 
+        return redirect(url_for('home_cliente', slug=config.slug))
     nome = request.form.get('nome')
     preco = float(request.form.get('preco'))
     novo = Servico(nome=nome, preco=preco)
@@ -377,7 +413,9 @@ def novo_servico():
 @app.route('/servico/excluir/<int:id>')
 @login_required
 def excluir_servico(id):
-    if not getattr(current_user, 'is_admin', False): return redirect(url_for('home_cliente'))
+    config = Configuracao.query.first()
+    if not getattr(current_user, 'is_admin', False): 
+        return redirect(url_for('home_cliente', slug=config.slug))
     servico = Servico.query.get_or_404(id)
     if Agendamento.query.filter_by(servico_id=id).first():
         flash('Não é possível excluir um serviço com agendamentos.', 'danger')
@@ -390,7 +428,9 @@ def excluir_servico(id):
 @app.route('/cliente/excluir/<int:id>')
 @login_required
 def excluir_cliente(id):
-    if not getattr(current_user, 'is_admin', False): return redirect(url_for('home_cliente'))
+    config = Configuracao.query.first()
+    if not getattr(current_user, 'is_admin', False): 
+        return redirect(url_for('home_cliente', slug=config.slug))
     cliente = Cliente.query.get_or_404(id)
     Agendamento.query.filter_by(cliente_id=id).delete()
     db.session.delete(cliente)

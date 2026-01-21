@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h2 class="text-center mb-4">Entrar na Fila Digital</h2>
+            <p class="text-center text-muted">Preencha os dados abaixo para aguardar sua vez.</p>
+            
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label">Seu Nome</label>
+                    <input type="text" name="nome" class="form-control" required placeholder="Ex: João Silva">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">WhatsApp (Opcional)</label>
+                    <input type="text" name="whatsapp" class="form-control" placeholder="Ex: 11999999999">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Serviço Desejado</label>
+                    <select name="servico_id" class="form-select" required>
+                        {% for servico in servicos %}
+                        <option value="{{ servico.id }}">{{ servico.nome }} - R$ {{ "%.2f"|format(servico.preco) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label">Barbeiro Específico</label>
+                    <select name="barbeiro_id" class="form-select">
+                        <option value="">Qualquer Barbeiro (Mais rápido)</option>
+                        {% for barbeiro in barbeiros %}
+                        <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100 btn-lg">Entrar na Fila</button>
+            </form>
+            
+            <div class="mt-3 text-center">
+                <a href="{{ url_for('home_cliente', slug=barbearia.slug) }}" class="text-decoration-none">Voltar ao Início</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

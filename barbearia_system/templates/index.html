@@ -6,7 +6,7 @@
         <h2>Agenda de Hoje - {{ datetime.now().strftime('%d/%m/%Y') }}</h2>
     </div>
     <div class="col-md-4 text-end">
-        <a href="{{ url_for('novo_agendamento') }}" class="btn btn-primary">Novo Agendamento</a>
+        <a href="{{ url_for('agendar_cliente', slug=barbearia.slug) }}" class="btn btn-primary">Novo Agendamento</a>
     </div>
 </div>
 
@@ -36,8 +36,7 @@
                         </td>
                         <td>
                             {% if agendamento.status == 'Pendente' %}
-                            <a href="{{ url_for('concluir_agendamento', id=agendamento.id) }}" class="btn btn-sm btn-success">Concluir</a>
-                            <a href="{{ url_for('cancelar_agendamento_admin', id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Cancelar este agendamento?')">Cancelar</a>
+                            <a href="{{ url_for('concluir_agendamento', slug=barbearia.slug, id=agendamento.id) }}" class="btn btn-sm btn-success">Concluir</a>
                             {% endif %}
                         </td>
                     </tr>

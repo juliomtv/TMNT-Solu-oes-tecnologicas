@@ -13,6 +13,14 @@
                         <label class="form-label">Nome da Barbearia</label>
                         <input type="text" name="nome_barbearia" class="form-control" value="{{ config.nome_barbearia }}">
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Link da Barbearia (Slug)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">/</span>
+                            <input type="text" name="slug" class="form-control" value="{{ config.slug }}" placeholder="ex: minha-barbearia">
+                        </div>
+                        <small class="text-muted">Este é o nome que aparecerá na URL (ex: seu-site.com/minha-barbearia).</small>
+                    </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Abertura</label>

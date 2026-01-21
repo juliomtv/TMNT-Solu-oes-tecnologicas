@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2>Painel da Fila Digital</h2>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Ver Agenda</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Cliente</th>
+                        <th>Serviço</th>
+                        <th>Barbeiro</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in fila %}
+                    <tr class="{% if item.status == 'chamado' %}table-info{% elif item.status == 'atendendo' %}table-success{% endif %}">
+                        <td><strong>{{ item.posicao }}</strong></td>
+                        <td>
+                            {{ item.cliente_nome }}<br>
+                            <small class="text-muted">{{ item.whatsapp or 'Sem WhatsApp' }}</small>
+                        </td>
+                        <td>{{ item.servico.nome }}</td>
+                        <td>{{ item.barbeiro.nome if item.barbeiro else 'Qualquer' }}</td>
+                        <td>
+                            <span class="badge {% if item.status == 'aguardando' %}bg-warning{% elif item.status == 'chamado' %}bg-info{% elif item.status == 'atendendo' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ item.status|capitalize }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if item.status == 'aguardando' %}
+                            <a href="{{ url_for('chamar_cliente_fila', id=item.id) }}" class="btn btn-sm btn-primary">Chamar</a>
+                            {% elif item.status == 'chamado' %}
+                            <a href="{{ url_for('atender_cliente_fila', id=item.id) }}" class="btn btn-sm btn-info">Iniciar</a>
+                            {% elif item.status == 'atendendo' %}
+                            <a href="{{ url_for('finalizar_cliente_fila', id=item.id) }}" class="btn btn-sm btn-success">Finalizar</a>
+                            {% endif %}
+                            
+                            {% if item.status != 'finalizado' %}
+                            <a href="{{ url_for('marcar_ausente_fila', id=item.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Marcar como ausente?')">Ausente</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center p-4">A fila está vazia no momento.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Atualizar a página a cada 60 segundos para o admin
+    setTimeout(function(){
+       window.location.reload();
+    }, 60000);
+</script>
+{% endblock %}

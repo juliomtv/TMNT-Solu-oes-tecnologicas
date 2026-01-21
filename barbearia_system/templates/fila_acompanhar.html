@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 text-center">
+        <div class="card p-5">
+            <h2 class="mb-4">Sua Posição na Fila</h2>
+            
+            <div class="display-1 fw-bold text-primary mb-3">
+                #{{ item.posicao }}
+            </div>
+            
+            <div class="mb-4">
+                <span class="badge {% if item.status == 'aguardando' %}bg-warning{% elif item.status == 'chamado' %}bg-info{% elif item.status == 'atendendo' %}bg-success{% else %}bg-secondary{% endif %} fs-5">
+                    Status: {{ item.status|capitalize }}
+                </span>
+            </div>
+            
+            <hr>
+            
+            <div class="row mt-4">
+                <div class="col-6 border-end">
+                    <h5 class="text-muted">Pessoas na frente</h5>
+                    <h3>{{ faltam }}</h3>
+                </div>
+                <div class="col-6">
+                    <h5 class="text-muted">Tempo Estimado</h5>
+                    <h3>~{{ tempo_estimado }} min</h3>
+                </div>
+            </div>
+            
+            <div class="mt-5">
+                <p class="text-muted">Esta página atualiza automaticamente.</p>
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <p><strong>Cliente:</strong> {{ item.cliente_nome }}</p>
+            <p><strong>Serviço:</strong> {{ item.servico.nome }}</p>
+            {% if item.barbeiro %}
+            <p><strong>Barbeiro:</strong> {{ item.barbeiro.nome }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Atualizar a página a cada 30 segundos
+    setTimeout(function(){
+       window.location.reload();
+    }, 30000);
+</script>
+{% endblock %}
