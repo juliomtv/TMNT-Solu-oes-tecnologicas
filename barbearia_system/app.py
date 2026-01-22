@@ -89,6 +89,14 @@ class Fila(db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
+    # Diferenciamos os IDs usando um prefixo para evitar que um Cliente logue como Usuario
+    user_id_str = str(user_id)
+    if user_id_str.startswith('u_'):
+        return Usuario.query.get(int(user_id_str[2:]))
+    elif user_id_str.startswith('c_'):
+        return Cliente.query.get(int(user_id_str[2:]))
+    
+    # Fallback para compatibilidade (tenta Usuario primeiro)
     user = Usuario.query.get(int(user_id))
     if user:
         return user
@@ -118,6 +126,7 @@ def login_global():
         password = request.form.get('password')
         user = Usuario.query.filter_by(username=username, is_superadmin=True).first()
         if user and check_password_hash(user.password, password):
+            user.id = f"u_{user.id}" # Força o prefixo no login
             login_user(user)
             return redirect(url_for('index_root'))
         else:
@@ -267,6 +276,7 @@ def login(slug):
         user = Usuario.query.filter_by(username=username).first()
         if user and check_password_hash(user.password, password):
             if user.is_superadmin or user.barbearia_id == config.id:
+                user.id = f"u_{user.id}" # Força o prefixo no login
                 login_user(user)
                 return redirect(url_for('index', slug=slug))
             else:
@@ -297,6 +307,7 @@ def login_cliente(slug):
         cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
         if cliente:
             session['cliente_telefone'] = telefone
+            cliente.id = f"c_{cliente.id}" # Força o prefixo no login
             login_user(cliente)
             return redirect(url_for('cliente_painel', slug=slug))
         else:
@@ -520,7 +531,10 @@ def agendar_cliente(slug):
         db.session.commit()
         flash('Agendamento solicitado! Aguarde a confirmação do barbeiro.', 'success')
         
-        # Não logamos automaticamente para não confundir o fluxo, redirecionamos para confirmação
+        # Garantimos que o telefone está na sessão para a tela de confirmação e notificações
+        session['cliente_telefone'] = telefone
+        
+        # Redirecionamos para a tela de confirmação específica do cliente
         return redirect(url_for('agendamento_confirmacao', slug=slug, agendamento_id=novo.id))
 
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
