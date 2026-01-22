@@ -540,7 +540,7 @@ def index(slug):
         db.func.date(Agendamento.data_hora) == hoje
     ).order_by(Agendamento.data_hora).all()
     
-    return render_template('index.html', agendamentos=agendamentos_hoje, config=config)
+    return render_template('index.html', agendamentos=agendamentos_hoje, config=config, datetime=datetime)
 
 @app.route('/<slug>/admin/agendamentos')
 @login_required
