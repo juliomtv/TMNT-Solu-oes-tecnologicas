@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card shadow">
+            <div class="card-header bg-danger text-white text-center">
+                <h4 class="mb-0">Acesso Super Admin</h4>
+                <small>Área Restrita ao Desenvolvedor</small>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Usuário Master</label>
+                        <input type="text" name="username" class="form-control" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Senha Master</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-danger">Entrar no Sistema</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <a href="javascript:history.back()" class="text-muted text-decoration-none small">Voltar</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
