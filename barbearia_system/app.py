@@ -291,7 +291,8 @@ def login_cliente(slug):
     if current_user.is_authenticated and not getattr(current_user, 'is_admin', False):
         if current_user.barbearia_id == config.id:
             return redirect(url_for('cliente_painel', slug=slug))
-               if request.method == 'POST':
+            
+    if request.method == 'POST':
         telefone = request.form.get('telefone')
         cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
         if cliente:
@@ -299,7 +300,7 @@ def login_cliente(slug):
             login_user(cliente)
             return redirect(url_for('cliente_painel', slug=slug))
         else:
-            flash('Telefone não encontrado.', 'danger')ria. Faça um agendamento primeiro!', 'warning')
+            flash('Telefone não encontrado. Faça um agendamento primeiro!', 'warning')
             return redirect(url_for('agendar_cliente', slug=slug))
     return render_template('cliente_login.html', config=config)
 
@@ -523,31 +524,23 @@ def agendar_cliente(slug):
         return redirect(url_for('agendamento_confirmacao', slug=slug, agendamento_id=novo.id))
 
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
-    return render_template('cliente_agendar.html', servicos=servicos, config=config)
+    barbeiros = Usuario.query.filter_by(barbearia_id=config.id, is_admin=True).all()
+    return render_template('cliente_agendar.html', servicos=servicos, barbeiros=barbeiros, config=config)
 
-# --- PAINEL ADMINISTRATIVO ---
 @app.route('/<slug>/admin')
 @login_required
 def index(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False):
-        return redirect(url_for('cliente_painel', slug=slug))
-    
-    if not current_user.is_superadmin and current_user.barbearia_id != config.id:
-        flash('Você não tem permissão para acessar esta unidade.', 'danger')
-        return redirect(url_for('index_root'))
-    
+    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+        return redirect(url_for('home_cliente', slug=slug))
+        
     hoje = datetime.now().date()
-    agendamentos = Agendamento.query.filter(
+    agendamentos_hoje = Agendamento.query.filter(
         Agendamento.barbearia_id == config.id,
-        db.or_(
-            Agendamento.status == 'Pendente',
-            Agendamento.status == 'Confirmado',
-            db.func.date(Agendamento.data_hora) == hoje
-        )
+        db.func.date(Agendamento.data_hora) == hoje
     ).order_by(Agendamento.data_hora).all()
     
-    return render_template('index.html', agendamentos=agendamentos, datetime=datetime, config=config)
+    return render_template('index.html', agendamentos=agendamentos_hoje, config=config)
 
 @app.route('/<slug>/admin/agendamentos')
 @login_required
