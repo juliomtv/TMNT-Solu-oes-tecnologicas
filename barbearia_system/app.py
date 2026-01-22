@@ -7,7 +7,7 @@ import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'chave-secreta-barbearia'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'barbearia.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + '/home/ubuntu/TMNT-Solucoes-tecnologicas/instance/barbearia.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -27,6 +27,7 @@ class Configuracao(db.Model):
     intervalo_minutos = db.Column(db.Integer, default=30)
     fidelidade_ativa = db.Column(db.Boolean, default=True)
     fidelidade_cortes_necessarios = db.Column(db.Integer, default=10)
+    notificacao_minutos = db.Column(db.Integer, default=15)
     
     usuarios = db.relationship('Usuario', backref='barbearia', lazy=True, cascade="all, delete-orphan")
     clientes = db.relationship('Cliente', backref='barbearia', lazy=True, cascade="all, delete-orphan")
@@ -215,6 +216,34 @@ def horarios_ocupados(slug):
     
     horarios = [a.data_hora.strftime('%H:%M') for a in agendamentos]
     return jsonify(horarios)
+
+@app.route('/api/<slug>/verificar_notificacoes')
+@login_required
+def verificar_notificacoes(slug):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    
+    # Se for cliente logado
+    if not getattr(current_user, 'is_admin', False):
+        agora = datetime.now()
+        limite = agora + timedelta(minutes=config.notificacao_minutos)
+        
+        # Busca agendamentos pendentes ou confirmados para o cliente nos próximos minutos
+        agendamento = Agendamento.query.filter(
+            Agendamento.cliente_id == current_user.id,
+            Agendamento.barbearia_id == config.id,
+            Agendamento.status.in_(['Pendente', 'Confirmado']),
+            Agendamento.data_hora > agora,
+            Agendamento.data_hora <= limite
+        ).first()
+        
+        if agendamento:
+            return jsonify({
+                'notificar': True,
+                'mensagem': f"Lembrete: Seu corte de cabelo está agendado para as {agendamento.data_hora.strftime('%H:%M')}!",
+                'id': agendamento.id
+            })
+            
+    return jsonify({'notificar': False})
 
 # Rotas de Autenticação Admin
 @app.route('/<slug>/login', methods=['GET', 'POST'])
@@ -631,6 +660,7 @@ def configuracoes(slug):
         config.intervalo_minutos = int(request.form.get('intervalo_minutos', 30))
         config.fidelidade_ativa = 'fidelidade_ativa' in request.form
         config.fidelidade_cortes_necessarios = int(request.form.get('fidelidade_cortes_necessarios', 10))
+        config.notificacao_minutos = int(request.form.get('notificacao_minutos', 15))
         db.session.commit()
         flash('Configurações atualizadas!', 'success')
         return redirect(url_for('configuracoes', slug=slug))

@@ -53,6 +53,20 @@
                         <small class="text-muted">Ex: Se definir 10, o 10º corte será o premiado.</small>
                     </div>
 
+                    <hr>
+                    <h5 class="mb-3">Notificações Push</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Notificar cliente (minutos antes)</label>
+                        <select name="notificacao_minutos" class="form-select">
+                            <option value="5" {% if config.notificacao_minutos == 5 %}selected{% endif %}>5 minutos antes</option>
+                            <option value="10" {% if config.notificacao_minutos == 10 %}selected{% endif %}>10 minutos antes</option>
+                            <option value="15" {% if config.notificacao_minutos == 15 %}selected{% endif %}>15 minutos antes</option>
+                            <option value="30" {% if config.notificacao_minutos == 30 %}selected{% endif %}>30 minutos antes</option>
+                            <option value="60" {% if config.notificacao_minutos == 60 %}selected{% endif %}>1 hora antes</option>
+                        </select>
+                        <small class="text-muted">Tempo de antecedência para enviar a notificação push ao navegador do cliente.</small>
+                    </div>
+
                     <button type="submit" class="btn btn-primary w-100">Salvar Alterações</button>
                 </form>
             </div>

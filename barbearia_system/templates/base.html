@@ -69,5 +69,49 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {% if config and current_user.is_authenticated and not current_user.is_admin %}
+    <script>
+        // Solicitar permissão para notificações
+        if ("Notification" in window) {
+            if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+        }
+
+        // Função para verificar notificações
+        function verificarNotificacoes() {
+            fetch("{{ url_for('verificar_notificacoes', slug=config.slug) }}")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.notificar) {
+                        const notificationId = "notif_" + data.id;
+                        // Verifica se já notificamos sobre este agendamento nesta sessão
+                        if (!sessionStorage.getItem(notificationId)) {
+                            if (Notification.permission === "granted") {
+                                new Notification("Lembrete de Agendamento", {
+                                    body: data.mensagem,
+                                    icon: "{{ url_for('static', filename='uploads/logo.png') }}"
+                                });
+                                sessionStorage.setItem(notificationId, "true");
+                            } else {
+                                // Fallback para alert se não tiver permissão de push
+                                alert(data.mensagem);
+                                sessionStorage.setItem(notificationId, "true");
+                            }
+                        }
+                    }
+                })
+                .catch(err => console.error("Erro ao verificar notificações:", err));
+        }
+
+        // Verifica a cada 1 minuto
+        if (current_user_id = "{{ current_user.id }}") {
+            setInterval(verificarNotificacoes, 60000);
+            // Verifica imediatamente ao carregar
+            verificarNotificacoes();
+        }
+    </script>
+    {% endif %}
 </body>
 </html>
