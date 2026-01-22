@@ -29,6 +29,7 @@
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('index', slug=config.slug) }}">Início</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_clientes', slug=config.slug) }}">Clientes</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_agendamentos', slug=config.slug) }}">Agendamentos</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{{ url_for('fila_painel', slug=config.slug) }}">Fila Digital</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('configuracoes', slug=config.slug) }}">Configurações</a></li>
                             {% endif %}
                             <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') }}">Sair</a></li>

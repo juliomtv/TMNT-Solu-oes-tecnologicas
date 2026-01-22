@@ -27,15 +27,7 @@
                     </select>
                 </div>
                 
-                <div class="mb-4">
-                    <label class="form-label">Barbeiro Específico</label>
-                    <select name="barbeiro_id" class="form-select">
-                        <option value="">Qualquer Barbeiro (Mais rápido)</option>
-                        {% for barbeiro in barbeiros %}
-                        <option value="{{ barbeiro.id }}">{{ barbeiro.nome }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                <!-- Barbeiro removido por simplificação -->
                 
                 <button type="submit" class="btn btn-primary w-100 btn-lg">Entrar na Fila</button>
             </form>

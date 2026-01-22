@@ -15,7 +15,8 @@
                         <li class="mb-2">{{ servico.nome }} - <strong>R$ {{ "%.2f"|format(servico.preco) }}</strong></li>
                         {% endfor %}
                     </ul>
-                    <a href="{{ url_for('agendar_cliente', slug=config.slug) }}" class="btn btn-primary btn-lg mt-3">Agendar Agora</a>
+                    <a href="{{ url_for('agendar_cliente', slug=config.slug) }}" class="btn btn-primary btn-lg mt-3">Agendar Horário</a>
+                    <a href="{{ url_for('entrar_fila', slug=config.slug) }}" class="btn btn-outline-light btn-lg mt-3">Entrar na Fila Agora</a>
                 </div>
             </div>
         </div>
