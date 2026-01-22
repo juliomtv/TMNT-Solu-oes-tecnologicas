@@ -106,7 +106,7 @@
         }
 
         // Verifica a cada 1 minuto
-        if (current_user_id = "{{ current_user.id }}") {
+        if ("{{ current_user.id }}") {
             setInterval(verificarNotificacoes, 60000);
             // Verifica imediatamente ao carregar
             verificarNotificacoes();

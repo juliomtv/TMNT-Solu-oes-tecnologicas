@@ -7,7 +7,7 @@ import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'chave-secreta-barbearia'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + '/home/ubuntu/TMNT-Solucoes-tecnologicas/instance/barbearia.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'barbearia.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
