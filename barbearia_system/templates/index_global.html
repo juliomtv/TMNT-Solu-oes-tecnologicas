@@ -18,11 +18,9 @@
                 <h1 class="display-4">Nossas Barbearias</h1>
                 <p class="lead text-muted">Selecione uma unidade para agendar seu atendimento.</p>
             </div>
-            {% if current_user.is_authenticated and current_user.is_superadmin %}
             <div class="col-md-4 text-end">
                 <a href="{{ url_for('cadastrar_barbearia') }}" class="btn btn-success btn-lg">+ Nova Barbearia</a>
             </div>
-            {% endif %}
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -35,22 +33,22 @@
 
         <div class="text-end mb-3">
             {% if not current_user.is_authenticated %}
-            <a href="{{ url_for('login', slug='sistema') }}" class="btn btn-sm btn-outline-secondary">Login Super Admin</a>
+            <p class="text-muted small">Área administrativa disponível em cada unidade.</p>
             {% else %}
             <span class="badge bg-dark">Logado como: {{ current_user.username }}</span>
-            <a href="{{ url_for('logout', slug='sistema') if current_user.barbearia_id else url_for('logout', slug='sistema') }}" class="btn btn-sm btn-link text-danger">Sair</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm btn-link text-danger">Sair</a>
             {% endif %}
         </div>
 
         <div class="row g-4">
-            {% for b in barbearias if b.slug != 'sistema' %}
+            {% for b in barbearias %}
             <div class="col-md-4">
                 <a href="{{ url_for('home_cliente', slug=b.slug) }}" class="card h-100 barbearia-card border-0 shadow-sm">
                     <div class="card-body p-4 text-center">
                         <div class="mb-3">
                             <span class="badge bg-primary">Unidade Ativa</span>
                         </div>
-                        <h3 class="card-title">{{ b.nome }}</h3>
+                        <h3 class="card-title">{{ b.nome_barbearia }}</h3>
                         <p class="text-muted">Link: /{{ b.slug }}</p>
                         <div class="btn btn-outline-primary mt-2">Acessar Unidade</div>
                     </div>
