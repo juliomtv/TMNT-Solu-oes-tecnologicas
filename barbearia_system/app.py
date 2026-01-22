@@ -25,6 +25,8 @@ class Configuracao(db.Model):
     horario_abertura = db.Column(db.String(5), default='09:00')
     horario_fechamento = db.Column(db.String(5), default='19:00')
     intervalo_minutos = db.Column(db.Integer, default=30)
+    fidelidade_ativa = db.Column(db.Boolean, default=True)
+    fidelidade_cortes_necessarios = db.Column(db.Integer, default=10)
     
     usuarios = db.relationship('Usuario', backref='barbearia', lazy=True, cascade="all, delete-orphan")
     clientes = db.relationship('Cliente', backref='barbearia', lazy=True, cascade="all, delete-orphan")
@@ -65,8 +67,10 @@ class Agendamento(db.Model):
     servico_id = db.Column(db.Integer, db.ForeignKey('servico.id'), nullable=False)
     status = db.Column(db.String(20), default='Pendente')
     barbearia_id = db.Column(db.Integer, db.ForeignKey('configuracao.id'), nullable=False)
+    barbeiro_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     
     servico = db.relationship('Servico')
+    barbeiro = db.relationship('Usuario')
 
 class Fila(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -77,8 +81,10 @@ class Fila(db.Model):
     status = db.Column(db.String(20), default='aguardando') # aguardando, chamado, atendendo, finalizado, ausente
     posicao = db.Column(db.Integer)
     criado_em = db.Column(db.DateTime, default=datetime.now)
+    barbeiro_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     
     servico = db.relationship('Servico')
+    barbeiro = db.relationship('Usuario')
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -302,6 +308,8 @@ def entrar_fila(slug):
         nome = request.form.get('nome')
         whatsapp = request.form.get('whatsapp')
         servico_id = request.form.get('servico_id')
+        barbeiro_id = request.form.get('barbeiro_id')
+        if barbeiro_id == "": barbeiro_id = None
         
         # Calcular próxima posição
         ultima_posicao = db.session.query(db.func.max(Fila.posicao)).filter_by(
@@ -314,6 +322,7 @@ def entrar_fila(slug):
             whatsapp=whatsapp,
             servico_id=servico_id,
             barbearia_id=config.id,
+            barbeiro_id=barbeiro_id,
             posicao=ultima_posicao + 1
         )
         db.session.add(novo_item)
@@ -448,7 +457,10 @@ def agendar_cliente(slug):
             db.session.add(cliente)
             db.session.flush()
 
-        novo = Agendamento(cliente_id=cliente.id, servico_id=servico_id, data_hora=data_hora, status='Pendente', barbearia_id=config.id)
+        barbeiro_id = request.form.get('barbeiro_id')
+        if barbeiro_id == "": barbeiro_id = None
+        
+        novo = Agendamento(cliente_id=cliente.id, servico_id=servico_id, barbeiro_id=barbeiro_id, data_hora=data_hora, status='Pendente', barbearia_id=config.id)
         db.session.add(novo)
         db.session.commit()
         flash('Agendamento solicitado! Aguarde a confirmação do barbeiro.', 'success')
@@ -502,10 +514,12 @@ def novo_agendamento(slug):
     if request.method == 'POST':
         cliente_id = request.form.get('cliente_id')
         servico_id = request.form.get('servico_id')
+        barbeiro_id = request.form.get('barbeiro_id')
+        if barbeiro_id == "": barbeiro_id = None
         data_hora_str = request.form.get('data_hora')
         data_hora = datetime.strptime(data_hora_str, '%Y-%m-%dT%H:%M')
         
-        novo = Agendamento(cliente_id=cliente_id, servico_id=servico_id, data_hora=data_hora, status='Confirmado', barbearia_id=config.id)
+        novo = Agendamento(cliente_id=cliente_id, servico_id=servico_id, barbeiro_id=barbeiro_id, data_hora=data_hora, status='Confirmado', barbearia_id=config.id)
         db.session.add(novo)
         db.session.commit()
         flash('Agendamento realizado com sucesso!', 'success')
@@ -549,10 +563,13 @@ def concluir_agendamento(slug, id):
         agendamento.status = 'Concluído'
         cliente = Cliente.query.get(agendamento.cliente_id)
         cliente.cortes_realizados += 1
-        cliente.fidelidade_pontos += 1
-        if cliente.fidelidade_pontos >= 11:
-             cliente.fidelidade_pontos = 0
-             flash(f'Parabéns! {cliente.nome} ganhou um corte grátis!', 'info')
+        
+        if config.fidelidade_ativa:
+            cliente.fidelidade_pontos += 1
+            if cliente.fidelidade_pontos >= config.fidelidade_cortes_necessarios:
+                 cliente.fidelidade_pontos = 0
+                 flash(f'Parabéns! {cliente.nome} ganhou um corte grátis!', 'info')
+        
         db.session.commit()
         flash('Atendimento concluído!', 'success')
     return redirect(request.referrer or url_for('index', slug=slug))
@@ -612,10 +629,54 @@ def configuracoes(slug):
         config.horario_abertura = request.form.get('horario_abertura')
         config.horario_fechamento = request.form.get('horario_fechamento')
         config.intervalo_minutos = int(request.form.get('intervalo_minutos', 30))
+        config.fidelidade_ativa = 'fidelidade_ativa' in request.form
+        config.fidelidade_cortes_necessarios = int(request.form.get('fidelidade_cortes_necessarios', 10))
         db.session.commit()
         flash('Configurações atualizadas!', 'success')
         return redirect(url_for('configuracoes', slug=slug))
     return render_template('configuracoes.html', config=config, servicos=servicos)
+
+@app.route('/<slug>/barbeiro/novo', methods=['POST'])
+@login_required
+def novo_barbeiro(slug):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+        return redirect(url_for('home_cliente', slug=slug))
+    
+    username = request.form.get('username')
+    password = request.form.get('password')
+    
+    if Usuario.query.filter_by(username=username).first():
+        flash('Este nome de usuário já está em uso.', 'danger')
+    else:
+        novo = Usuario(
+            username=username,
+            password=generate_password_hash(password, method='pbkdf2:sha256'),
+            is_admin=True,
+            barbearia_id=config.id
+        )
+        db.session.add(novo)
+        db.session.commit()
+        flash('Barbeiro adicionado com sucesso!', 'success')
+    return redirect(url_for('configuracoes', slug=slug))
+
+@app.route('/<slug>/barbeiro/excluir/<int:id>')
+@login_required
+def excluir_barbeiro(slug, id):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+        return redirect(url_for('home_cliente', slug=slug))
+    
+    barbeiro = Usuario.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    
+    # Não permitir excluir a si mesmo ou o último admin se necessário, mas aqui vamos simplificar
+    if barbeiro.id == current_user.id:
+        flash('Você não pode excluir seu próprio usuário.', 'danger')
+    else:
+        db.session.delete(barbeiro)
+        db.session.commit()
+        flash('Barbeiro removido.', 'success')
+    return redirect(url_for('configuracoes', slug=slug))
 
 @app.route('/<slug>/servico/novo', methods=['POST'])
 @login_required

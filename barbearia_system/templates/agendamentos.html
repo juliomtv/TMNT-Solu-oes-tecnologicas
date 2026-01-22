@@ -18,6 +18,7 @@
                     <tr>
                         <th>Data e Hora</th>
                         <th>Cliente</th>
+                        <th>Barbeiro</th>
                         <th>Serviço</th>
                         <th>Preço</th>
                         <th>Status</th>
@@ -29,6 +30,7 @@
                     <tr>
                         <td>{{ agendamento.data_hora.strftime('%d/%m/%Y %H:%M') }}</td>
                         <td>{{ agendamento.cliente.nome }}</td>
+                        <td>{{ agendamento.barbeiro.username if agendamento.barbeiro else 'Não definido' }}</td>
                         <td>{{ agendamento.servico.nome }}</td>
                         <td>R$ {{ "%.2f"|format(agendamento.servico.preco) }}</td>
                         <td>

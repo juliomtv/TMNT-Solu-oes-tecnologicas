@@ -27,7 +27,15 @@
                     </select>
                 </div>
                 
-                <!-- Barbeiro removido por simplificação -->
+                <div class="mb-3">
+                    <label class="form-label">Escolha o Barbeiro (Opcional)</label>
+                    <select name="barbeiro_id" class="form-select">
+                        <option value="">Qualquer Barbeiro</option>
+                        {% for usuario in barbearia.usuarios %}
+                        <option value="{{ usuario.id }}">{{ usuario.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 
                 <button type="submit" class="btn btn-primary w-100 btn-lg">Entrar na Fila</button>
             </form>

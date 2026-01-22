@@ -39,8 +39,20 @@
                             <option value="45" {% if config.intervalo_minutos == 45 %}selected{% endif %}>45 minutos</option>
                             <option value="60" {% if config.intervalo_minutos == 60 %}selected{% endif %}>1 hora</option>
                         </select>
-                        <small class="text-muted">Define de quanto em quanto tempo os clientes podem marcar horários.</small>
                     </div>
+
+                    <hr>
+                    <h5 class="mb-3">Sistema de Fidelidade</h5>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="fidelidade_ativa" id="fidelidade_ativa" {% if config.fidelidade_ativa %}checked{% endif %}>
+                        <label class="form-check-label" for="fidelidade_ativa">Ativar Sistema de Fidelidade</label>
+                    </div>
+                    <div class="mb-3" id="div_cortes" {% if not config.fidelidade_ativa %}style="display:none;"{% endif %}>
+                        <label class="form-label">Quantidade de cortes para ganhar prêmio</label>
+                        <input type="number" name="fidelidade_cortes_necessarios" class="form-control" value="{{ config.fidelidade_cortes_necessarios }}" min="1">
+                        <small class="text-muted">Ex: Se definir 10, o 10º corte será o premiado.</small>
+                    </div>
+
                     <button type="submit" class="btn btn-primary w-100">Salvar Alterações</button>
                 </form>
             </div>
@@ -48,10 +60,36 @@
     </div>
 
     <div class="col-md-6">
+        <!-- Gestão de Barbeiros -->
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">Barbeiros</h4>
+                <button class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#modalBarbeiro">Novo Barbeiro</button>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for usuario in config.usuarios %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            {{ usuario.username }}
+                            {% if usuario.id == current_user.id %}
+                                <span class="badge bg-info ms-2">Você</span>
+                            {% endif %}
+                        </div>
+                        {% if usuario.id != current_user.id %}
+                        <a href="{{ url_for('excluir_barbeiro', slug=config.slug, id=usuario.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover este barbeiro?')">×</a>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Gestão de Serviços -->
         <div class="card">
             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                 <h4 class="mb-0">Serviços e Preços</h4>
-                <button class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#modalServico">Novo</button>
+                <button class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#modalServico">Novo Serviço</button>
             </div>
             <div class="card-body">
                 <ul class="list-group">
@@ -97,4 +135,38 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Novo Barbeiro -->
+<div class="modal fade" id="modalBarbeiro" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ url_for('novo_barbeiro', slug=config.slug) }}" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Adicionar Novo Barbeiro</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nome de Usuário (Login)</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Senha</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('fidelidade_ativa').addEventListener('change', function() {
+    document.getElementById('div_cortes').style.display = this.checked ? 'block' : 'none';
+});
+</script>
 {% endblock %}

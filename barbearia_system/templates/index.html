@@ -18,6 +18,7 @@
                     <tr>
                         <th>Horário</th>
                         <th>Cliente</th>
+                        <th>Barbeiro</th>
                         <th>Serviço</th>
                         <th>Status</th>
                         <th>Ações</th>
@@ -28,6 +29,7 @@
                     <tr>
                         <td>{{ agendamento.data_hora.strftime('%H:%M') }}</td>
                         <td>{{ agendamento.cliente.nome }}</td>
+                        <td>{{ agendamento.barbeiro.username if agendamento.barbeiro else '-' }}</td>
                         <td>{{ agendamento.servico.nome }}</td>
                         <td>
                             <span class="badge {% if agendamento.status == 'Pendente' %}bg-warning{% elif agendamento.status == 'Confirmado' %}bg-primary{% elif agendamento.status == 'Concluído' %}bg-success{% else %}bg-danger{% endif %}">

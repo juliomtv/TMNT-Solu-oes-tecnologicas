@@ -15,13 +15,15 @@
             <h2 class="display-4">{{ cliente.cortes_realizados }}</h2>
         </div>
     </div>
+    {% if config.fidelidade_ativa %}
     <div class="col-md-4">
         <div class="card bg-success text-white text-center p-3">
             <h4>Pontos Fidelidade</h4>
-            <h2 class="display-4">{{ cliente.fidelidade_pontos }}/10</h2>
-            <small>A cada 10 cortes, o próximo é grátis!</small>
+            <h2 class="display-4">{{ cliente.fidelidade_pontos }}/{{ config.fidelidade_cortes_necessarios }}</h2>
+            <small>A cada {{ config.fidelidade_cortes_necessarios }} cortes, o próximo é grátis!</small>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <div class="card">
@@ -34,6 +36,7 @@
                 <thead>
                     <tr>
                         <th>Data e Hora</th>
+                        <th>Barbeiro</th>
                         <th>Serviço</th>
                         <th>Preço</th>
                         <th>Status</th>
@@ -44,6 +47,7 @@
                     {% for agendamento in agendamentos %}
                     <tr>
                         <td>{{ agendamento.data_hora.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>{{ agendamento.barbeiro.username if agendamento.barbeiro else '-' }}</td>
                         <td>{{ agendamento.servico.nome }}</td>
                         <td>R$ {{ "%.2f"|format(agendamento.servico.preco) }}</td>
                         <td>

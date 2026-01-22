@@ -19,7 +19,7 @@
                         <th>#</th>
                         <th>Cliente</th>
                         <th>Serviço</th>
-                        
+                        <th>Barbeiro</th>
                         <th>Status</th>
                         <th>Ações</th>
                     </tr>
@@ -33,7 +33,7 @@
                             <small class="text-muted">{{ item.whatsapp or 'Sem WhatsApp' }}</small>
                         </td>
                         <td>{{ item.servico.nome }}</td>
-                        
+                        <td>{{ item.barbeiro.username if item.barbeiro else '-' }}</td>
                         <td>
                             <span class="badge {% if item.status == 'aguardando' %}bg-warning{% elif item.status == 'chamado' %}bg-info{% elif item.status == 'atendendo' %}bg-success{% else %}bg-secondary{% endif %}">
                                 {{ item.status|capitalize }}

@@ -28,6 +28,15 @@
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Barbeiro</label>
+                        <select name="barbeiro_id" class="form-select">
+                            <option value="">Qualquer Barbeiro</option>
+                            {% for usuario in config.usuarios %}
+                            <option value="{{ usuario.id }}">{{ usuario.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Data e Horário</label>
                         <input type="datetime-local" name="data_hora" class="form-control" required>
                     </div>
