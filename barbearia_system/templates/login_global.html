@@ -2,95 +2,116 @@
 
 {% block content %}
 <style>
-.login-page {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f2f2f2;
-    position: relative;
-    overflow: hidden;
-}
+    /* Reset de estilos do base.html para esta página */
+    body {
+        background: none !important;
+        background-color: #000 !important;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+    }
 
-/* LOGO NO FUNDO */
-.login-page::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: url("{{ url_for('static', filename='uploads/logo.png') }}")
-                center center no-repeat;
-    background-size: 420px;
-    opacity: 0.12; /* controla a força da logo */
-    z-index: 1;
-}
+    .navbar {
+        display: none !important;
+    }
 
-/* CARD POR CIMA */
-.login-card {
-    position: relative;
-    z-index: 2;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(8px);
-    border-radius: 20px;
-    padding: 2rem;
-    width: 100%;
-    max-width: 420px;
-}
+    .container {
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    /* Fundo em tela cheia */
+    .login-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+        background: 
+            linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)),
+            url("{{ url_for('static', filename='uploads/logo.png') }}") no-repeat center center;
+        background-size: 400px;
+        background-attachment: fixed;
+    }
+
+    @media (max-width: 768px) {
+        .login-bg {
+            background-size: 300px; /* Logo menor no celular */
+        }
+    }
+
+    .login-wrapper {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .login-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        width: 100%;
+        max-width: 400px;
+        color: white;
+    }
+
+    .form-control {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border: none !important;
+        border-radius: 10px !important;
+    }
+
+    .btn-master {
+        background: #fff !important;
+        color: #000 !important;
+        font-weight: bold !important;
+        border-radius: 10px !important;
+        padding: 12px !important;
+        transition: all 0.3s ease;
+    }
+
+    .btn-master:hover {
+        background: #e0e0e0 !important;
+        transform: translateY(-2px);
+    }
 </style>
 
-<div class="login-page">
-    <div class="row justify-content-center align-items-center w-100">
-        <div class="col-md-4">
-            <div class="text-center mb-4">
-                <h2 class="fw-bold">TMNT</h2>
-                <h5 class="text-muted">Soluções Tecnológicas</h5>
+<div class="login-bg"></div>
+
+<div class="login-wrapper">
+    <div class="login-card shadow-2xl">
+        <div class="p-4 text-center">
+            <h2 class="fw-bold mb-1">TMNT</h2>
+            <p class="text-white-50 small mb-4">Soluções Tecnológicas</p>
+            
+            <hr class="border-white-50 mb-4">
+            
+            <h4 class="mb-3">Acesso Master</h4>
+            
+            <form method="POST">
+                <div class="mb-3 text-start">
+                    <label class="form-label small fw-bold">USUÁRIO</label>
+                    <input type="text" name="username" class="form-control" placeholder="Digite seu usuário" required autofocus>
+                </div>
+                <div class="mb-4 text-start">
+                    <label class="form-label small fw-bold">SENHA</label>
+                    <input type="password" name="password" class="form-control" placeholder="Digite sua senha" required>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-master">ENTRAR NO SISTEMA</button>
+                </div>
+            </form>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('index_root') }}" class="text-white-50 text-decoration-none small">
+                    &larr; Voltar ao início
+                </a>
             </div>
-
-            <div class="card login-card shadow-lg">
-                <div class="card-header bg-transparent border-0 text-center pt-4">
-                    <h4 class="mb-0 fw-bold text-dark">Painel Master</h4>
-                    <small class="text-muted">Acesso Restrito ao Desenvolvedor</small>
-                </div>
-
-                <div class="card-body p-4">
-                    <form method="POST">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-dark">Usuário Master</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-white border-end-0">
-                                    <i class="bi bi-person text-primary"></i>
-                                </span>
-                                <input type="text" name="username" class="form-control border-start-0" required>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label fw-bold text-dark">Senha Master</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-white border-end-0">
-                                    <i class="bi bi-lock text-primary"></i>
-                                </span>
-                                <input type="password" name="password" class="form-control border-start-0" required>
-                            </div>
-                        </div>
-
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-lg fw-bold">
-                                Entrar no Sistema
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <div class="card-footer bg-transparent border-0 text-center pb-4">
-                    <a href="{{ url_for('index_root') }}" class="text-primary text-decoration-none small fw-bold">
-                        <i class="bi bi-arrow-left"></i> Voltar para o Início
-                    </a>
-                </div>
-            </div>
-
-            <p class="text-center mt-4 text-muted small">
-                &copy; 2026 TMNT Soluções Tecnológicas
-            </p>
         </div>
     </div>
 </div>
