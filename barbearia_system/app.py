@@ -101,13 +101,39 @@ with app.app_context():
         db.session.commit()
 
 # --- ROTAS GLOBAIS ---
+@app.route('/login_master', methods=['GET', 'POST'])
+def login_global():
+    if current_user.is_authenticated and getattr(current_user, 'is_superadmin', False):
+        return redirect(url_for('index_root'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = Usuario.query.filter_by(username=username, is_superadmin=True).first()
+        if user and check_password_hash(user.password, password):
+            login_user(user)
+            return redirect(url_for('index_root'))
+        else:
+            flash('Acesso negado. Apenas o desenvolvedor pode acessar esta área.', 'danger')
+    return render_template('login_global.html')
+
 @app.route('/')
+@login_required
 def index_root():
+    if not getattr(current_user, 'is_superadmin', False):
+        flash('Acesso restrito ao Super Admin.', 'danger')
+        logout_user()
+        return redirect(url_for('login_global'))
     barbearias = Configuracao.query.all()
     return render_template('index_global.html', barbearias=barbearias)
 
 @app.route('/cadastrar_barbearia', methods=['GET', 'POST'])
+@login_required
 def cadastrar_barbearia():
+    if not getattr(current_user, 'is_superadmin', False):
+        flash('Apenas o Super Admin pode cadastrar novas barbearias.', 'danger')
+        return redirect(url_for('index_root'))
+        
     if request.method == 'POST':
         nome = request.form.get('nome')
         slug = request.form.get('slug').lower().strip().replace(' ', '-')
@@ -148,6 +174,19 @@ def cadastrar_barbearia():
         return redirect(url_for('index_root'))
         
     return render_template('cadastrar_barbearia.html')
+
+@app.route('/excluir_barbearia/<int:id>')
+@login_required
+def excluir_barbearia(id):
+    if not getattr(current_user, 'is_superadmin', False):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index_root'))
+        
+    barbearia = Configuracao.query.get_or_404(id)
+    db.session.delete(barbearia)
+    db.session.commit()
+    flash(f'Barbearia {barbearia.nome_barbearia} excluída com sucesso.', 'success')
+    return redirect(url_for('index_root'))
 
 # --- API PARA VERIFICAR HORÁRIOS OCUPADOS ---
 @app.route('/api/<slug>/horarios_ocupados')
@@ -196,7 +235,10 @@ def login(slug):
 @app.route('/logout')
 @login_required
 def logout():
+    is_super = getattr(current_user, 'is_superadmin', False)
     logout_user()
+    if is_super:
+        return redirect(url_for('login_global'))
     return redirect(url_for('index_root'))
 
 # --- ÁREA DO CLIENTE ---
