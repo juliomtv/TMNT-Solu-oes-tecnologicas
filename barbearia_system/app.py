@@ -68,6 +68,18 @@ class Agendamento(db.Model):
     
     servico = db.relationship('Servico')
 
+class Fila(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_nome = db.Column(db.String(100), nullable=False)
+    whatsapp = db.Column(db.String(20))
+    servico_id = db.Column(db.Integer, db.ForeignKey('servico.id'), nullable=False)
+    barbearia_id = db.Column(db.Integer, db.ForeignKey('configuracao.id'), nullable=False)
+    status = db.Column(db.String(20), default='aguardando') # aguardando, chamado, atendendo, finalizado, ausente
+    posicao = db.Column(db.Integer)
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+    
+    servico = db.relationship('Servico')
+
 @login_manager.user_loader
 def load_user(user_id):
     user = Usuario.query.get(int(user_id))
@@ -239,6 +251,121 @@ def cancelar_agendamento_cliente(slug, id):
 def logout_cliente(slug):
     logout_user()
     return redirect(url_for('home_cliente', slug=slug))
+
+# --- FILA DIGITAL ---
+@app.route('/<slug>/fila/entrar', methods=['GET', 'POST'])
+def entrar_fila(slug):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if request.method == 'POST':
+        nome = request.form.get('nome')
+        whatsapp = request.form.get('whatsapp')
+        servico_id = request.form.get('servico_id')
+        
+        # Calcular próxima posição
+        ultima_posicao = db.session.query(db.func.max(Fila.posicao)).filter_by(
+            barbearia_id=config.id, 
+            status='aguardando'
+        ).scalar() or 0
+        
+        novo_item = Fila(
+            cliente_nome=nome,
+            whatsapp=whatsapp,
+            servico_id=servico_id,
+            barbearia_id=config.id,
+            posicao=ultima_posicao + 1
+        )
+        db.session.add(novo_item)
+        db.session.commit()
+        return redirect(url_for('acompanhar_fila', slug=slug, item_id=novo_item.id))
+        
+    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
+    return render_template('fila_entrar.html', barbearia=config, servicos=servicos)
+
+@app.route('/<slug>/fila/acompanhar/<int:item_id>')
+def acompanhar_fila(slug, item_id):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    item = Fila.query.get_or_404(item_id)
+    
+    # Pessoas na frente (status 'aguardando' e posição menor)
+    faltam = Fila.query.filter(
+        Fila.barbearia_id == config.id,
+        Fila.status == 'aguardando',
+        Fila.posicao < item.posicao
+    ).count()
+    
+    tempo_estimado = faltam * 30 # Estimativa simples de 30 min por pessoa
+    
+    return render_template('fila_acompanhar.html', item=item, faltam=faltam, tempo_estimado=tempo_estimado, config=config)
+
+@app.route('/<slug>/admin/fila')
+@login_required
+def fila_painel(slug):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not getattr(current_user, 'is_admin', False):
+        return redirect(url_for('home_cliente', slug=slug))
+        
+    fila = Fila.query.filter(
+        Fila.barbearia_id == config.id,
+        Fila.status.in_(['aguardando', 'chamado', 'atendendo'])
+    ).order_by(Fila.posicao).all()
+    
+    return render_template('fila_painel.html', fila=fila, config=config)
+
+@app.route('/admin/fila/chamar/<int:id>')
+@login_required
+def chamar_cliente_fila(id):
+    item = Fila.query.get_or_404(id)
+    item.status = 'chamado'
+    db.session.commit()
+    config = Configuracao.query.get(item.barbearia_id)
+    return redirect(url_for('fila_painel', slug=config.slug))
+
+@app.route('/admin/fila/atender/<int:id>')
+@login_required
+def atender_cliente_fila(id):
+    item = Fila.query.get_or_404(id)
+    item.status = 'atendendo'
+    db.session.commit()
+    config = Configuracao.query.get(item.barbearia_id)
+    return redirect(url_for('fila_painel', slug=config.slug))
+
+@app.route('/admin/fila/finalizar/<int:id>')
+@login_required
+def finalizar_cliente_fila(id):
+    item = Fila.query.get_or_404(id)
+    item.status = 'finalizado'
+    
+    # Reordenar posições dos que ficaram
+    restantes = Fila.query.filter(
+        Fila.barbearia_id == item.barbearia_id,
+        Fila.status == 'aguardando',
+        Fila.posicao > item.posicao
+    ).all()
+    for r in restantes:
+        r.posicao -= 1
+        
+    db.session.commit()
+    config = Configuracao.query.get(item.barbearia_id)
+    return redirect(url_for('fila_painel', slug=config.slug))
+
+@app.route('/admin/fila/ausente/<int:id>')
+@login_required
+def marcar_ausente_fila(id):
+    item = Fila.query.get_or_404(id)
+    item.status = 'ausente'
+    
+    # Reordenar posições
+    restantes = Fila.query.filter(
+        Fila.barbearia_id == item.barbearia_id,
+        Fila.status == 'aguardando',
+        Fila.posicao > item.posicao
+    ).all()
+    for r in restantes:
+        r.posicao -= 1
+        
+    db.session.commit()
+    config = Configuracao.query.get(item.barbearia_id)
+    return redirect(url_for('fila_painel', slug=config.slug))
 
 @app.route('/<slug>')
 def home_cliente(slug):
