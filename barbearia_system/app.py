@@ -295,8 +295,12 @@ def agendar_cliente(slug):
 @login_required
 def index(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    if not getattr(current_user, 'is_admin', False):
         return redirect(url_for('cliente_painel', slug=slug))
+    
+    if not current_user.is_superadmin and current_user.barbearia_id != config.id:
+        flash('Você não tem permissão para acessar esta unidade.', 'danger')
+        return redirect(url_for('index_root'))
     
     hoje = datetime.now().date()
     agendamentos = Agendamento.query.filter(
