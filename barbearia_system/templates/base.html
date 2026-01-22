@@ -83,7 +83,7 @@
         </div>
     </div>
 
-    {% if config and current_user.is_authenticated and not current_user.is_admin %}
+    {% if config and (current_user.is_authenticated or session.get('cliente_telefone')) and not getattr(current_user, 'is_admin', False) %}
     <script>
         console.log("Sistema de notificações carregado para o cliente.");
 

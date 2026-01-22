@@ -218,18 +218,26 @@ def horarios_ocupados(slug):
     return jsonify(horarios)
 
 @app.route('/api/<slug>/verificar_notificacoes')
-@login_required
 def verificar_notificacoes(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
     
-    # Se for cliente logado
-    if not getattr(current_user, 'is_admin', False):
+    cliente_id = None
+    if current_user.is_authenticated and not getattr(current_user, 'is_admin', False):
+        cliente_id = current_user.id
+    else:
+        # Tenta pegar o telefone da sessão para clientes não logados
+        telefone = session.get('cliente_telefone')
+        if telefone:
+            cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
+            if cliente:
+                cliente_id = cliente.id
+
+    if cliente_id:
         agora = datetime.now()
         limite = agora + timedelta(minutes=config.notificacao_minutos)
         
-        # Busca agendamentos pendentes ou confirmados para o cliente nos próximos minutos
         agendamento = Agendamento.query.filter(
-            Agendamento.cliente_id == current_user.id,
+            Agendamento.cliente_id == cliente_id,
             Agendamento.barbearia_id == config.id,
             Agendamento.status.in_(['Pendente', 'Confirmado']),
             Agendamento.data_hora > agora,
@@ -283,15 +291,15 @@ def login_cliente(slug):
     if current_user.is_authenticated and not getattr(current_user, 'is_admin', False):
         if current_user.barbearia_id == config.id:
             return redirect(url_for('cliente_painel', slug=slug))
-            
-    if request.method == 'POST':
+               if request.method == 'POST':
         telefone = request.form.get('telefone')
         cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
         if cliente:
+            session['cliente_telefone'] = telefone
             login_user(cliente)
             return redirect(url_for('cliente_painel', slug=slug))
         else:
-            flash('Número não encontrado nesta barbearia. Faça um agendamento primeiro!', 'warning')
+            flash('Telefone não encontrado.', 'danger')ria. Faça um agendamento primeiro!', 'warning')
             return redirect(url_for('agendar_cliente', slug=slug))
     return render_template('cliente_login.html', config=config)
 
@@ -453,6 +461,20 @@ def home_cliente(slug):
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     return render_template('cliente_home.html', servicos=servicos, config=config)
 
+@app.route('/<slug>/agendamento/confirmacao/<int:agendamento_id>')
+def agendamento_confirmacao(slug, agendamento_id):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    agendamento = Agendamento.query.get_or_404(agendamento_id)
+    return render_template('cliente_agendamento_status.html', config=config, agendamento=agendamento)
+
+@app.route('/api/<slug>/agendamento/status/<int:agendamento_id>')
+def api_agendamento_status(slug, agendamento_id):
+    agendamento = Agendamento.query.get_or_404(agendamento_id)
+    return jsonify({
+        'status': agendamento.status,
+        'data_hora': agendamento.data_hora.strftime('%d/%m/%Y %H:%M')
+    })
+
 @app.route('/<slug>/agendar', methods=['GET', 'POST'])
 def agendar_cliente(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
@@ -486,6 +508,9 @@ def agendar_cliente(slug):
             db.session.add(cliente)
             db.session.flush()
 
+        # Salva o telefone na sessão para notificações mesmo sem login formal
+        session['cliente_telefone'] = telefone
+
         barbeiro_id = request.form.get('barbeiro_id')
         if barbeiro_id == "": barbeiro_id = None
         
@@ -494,8 +519,8 @@ def agendar_cliente(slug):
         db.session.commit()
         flash('Agendamento solicitado! Aguarde a confirmação do barbeiro.', 'success')
         
-        login_user(cliente)
-        return redirect(url_for('cliente_painel', slug=slug))
+        # Não logamos automaticamente para não confundir o fluxo, redirecionamos para confirmação
+        return redirect(url_for('agendamento_confirmacao', slug=slug, agendamento_id=novo.id))
 
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     return render_template('cliente_agendar.html', servicos=servicos, config=config)
