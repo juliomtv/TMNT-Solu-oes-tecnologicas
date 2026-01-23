@@ -6,13 +6,13 @@
         <div class="card p-5">
             <h2 class="mb-4">Sua Posição na Fila</h2>
             
-            <div class="display-1 fw-bold text-primary mb-3">
+            <div class="display-1 fw-bold text-primary mb-3" id="fila-posicao">
                 #{{ item.posicao }}
             </div>
             
             <div class="mb-4">
-                <span class="badge {% if item.status == 'aguardando' %}bg-warning{% elif item.status == 'chamado' %}bg-info{% elif item.status == 'atendendo' %}bg-success{% else %}bg-secondary{% endif %} fs-5">
-                    Status: {{ item.status|capitalize }}
+                <span id="fila-status-badge" class="badge {% if item.status == 'aguardando' %}bg-warning{% elif item.status == 'chamado' %}bg-info{% elif item.status == 'atendendo' %}bg-success{% else %}bg-secondary{% endif %} fs-5">
+                    Status: <span id="fila-status-text">{{ item.status|capitalize }}</span>
                 </span>
             </div>
             
@@ -21,11 +21,11 @@
             <div class="row mt-4">
                 <div class="col-6 border-end">
                     <h5 class="text-muted">Pessoas na frente</h5>
-                    <h3>{{ faltam }}</h3>
+                    <h3 id="fila-faltam">{{ faltam }}</h3>
                 </div>
                 <div class="col-6">
                     <h5 class="text-muted">Tempo Estimado</h5>
-                    <h3>~{{ tempo_estimado }} min</h3>
+                    <h3>~<span id="fila-tempo">{{ tempo_estimado }}</span> min</h3>
                 </div>
             </div>
             
@@ -46,9 +46,36 @@
 </div>
 
 <script>
-    // Atualizar a página a cada 30 segundos
-    setTimeout(function(){
-       window.location.reload();
-    }, 30000);
+    const itemId = {{ item.id }};
+    const slug = "{{ config.slug }}";
+
+    function updateFilaStatus() {
+        fetch(`/api/${slug}/fila/status/${itemId}`)
+            .then(response => response.json())
+            .then(data => {
+                // Atualiza os elementos na tela
+                document.getElementById('fila-posicao').innerText = '#' + data.posicao;
+                document.getElementById('fila-status-text').innerText = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                document.getElementById('fila-faltam').innerText = data.faltam;
+                document.getElementById('fila-tempo').innerText = data.tempo_estimado;
+
+                // Atualiza a cor do badge conforme o status
+                const badge = document.getElementById('fila-status-badge');
+                badge.className = 'badge fs-5 ';
+                if (data.status === 'aguardando') badge.classList.add('bg-warning');
+                else if (data.status === 'chamado') badge.classList.add('bg-info');
+                else if (data.status === 'atendendo') badge.classList.add('bg-success');
+                else badge.classList.add('bg-secondary');
+
+                // Se o status mudar para algo finalizado, podemos parar ou avisar
+                if (data.status === 'finalizado' || data.status === 'ausente') {
+                    location.reload(); // Recarrega para mostrar o estado final
+                }
+            })
+            .catch(err => console.error("Erro ao atualizar fila:", err));
+    }
+
+    // Atualiza a cada 10 segundos
+    setInterval(updateFilaStatus, 10000);
 </script>
 {% endblock %}

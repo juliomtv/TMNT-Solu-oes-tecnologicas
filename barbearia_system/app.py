@@ -397,6 +397,24 @@ def acompanhar_fila(slug, item_id):
     
     return render_template('fila_acompanhar.html', item=item, faltam=faltam, tempo_estimado=tempo_estimado, config=config)
 
+@app.route('/api/<slug>/fila/status/<int:item_id>')
+def api_fila_status(slug, item_id):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    item = Fila.query.get_or_404(item_id)
+    
+    faltam = Fila.query.filter(
+        Fila.barbearia_id == config.id,
+        Fila.status == 'aguardando',
+        Fila.posicao < item.posicao
+    ).count()
+    
+    return jsonify({
+        'status': item.status,
+        'posicao': item.posicao,
+        'faltam': faltam,
+        'tempo_estimado': faltam * 30
+    })
+
 @app.route('/<slug>/admin/fila')
 @login_required
 def fila_painel(slug):
