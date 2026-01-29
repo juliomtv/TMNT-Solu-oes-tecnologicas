@@ -9,6 +9,7 @@
         body { background-color: #f8f9fa; padding-top: 50px; }
         .barbearia-card { transition: transform 0.2s; cursor: pointer; text-decoration: none; color: inherit; }
         .barbearia-card:hover { transform: translateY(-5px); }
+        .status-badge { position: absolute; top: 10px; right: 10px; }
     </style>
 </head>
 <body>
@@ -43,18 +44,27 @@
         <div class="row g-4">
             {% for b in barbearias %}
             <div class="col-md-4">
-                <a href="{{ url_for('home_cliente', slug=b.slug) }}" class="card h-100 barbearia-card border-0 shadow-sm">
-                    <div class="card-body p-4 text-center">
-                        <div class="mb-3">
-                            <span class="badge bg-primary">Unidade Ativa</span>
-                        </div>
-                        <h3 class="card-title">{{ b.nome_barbearia }}</h3>
-                        <p class="text-muted">Link: /{{ b.slug }}</p>
-                        <div class="btn btn-outline-primary mt-2">Acessar Unidade</div>
-                        <hr>
-                        <a href="{{ url_for('excluir_barbearia', id=b.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir esta barbearia e todos os seus dados?')">Excluir Unidade</a>
+                <div class="card h-100 barbearia-card border-0 shadow-sm position-relative">
+                    <div class="status-badge">
+                        {% if b.ativo %}
+                        <span class="badge bg-success">Ativa</span>
+                        {% else %}
+                        <span class="badge bg-danger">Desativada</span>
+                        {% endif %}
                     </div>
-                </a>
+                    <div class="card-body p-4 text-center">
+                        <h3 class="card-title mt-3">{{ b.nome_barbearia }}</h3>
+                        <p class="text-muted">Link: /{{ b.slug }}</p>
+                        
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('home_cliente', slug=b.slug) }}" class="btn btn-outline-primary">Acessar Unidade</a>
+                            <div class="btn-group mt-2">
+                                <a href="{{ url_for('editar_barbearia', id=b.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                                <a href="{{ url_for('excluir_barbearia', id=b.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir esta barbearia e todos os seus dados?')">Excluir</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             {% else %}
             <div class="col-12 text-center py-5">

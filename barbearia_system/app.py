@@ -4,6 +4,8 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
+import re
+import unicodedata
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'chave-secreta-barbearia'
@@ -17,6 +19,21 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login_global'
 
+# Funções auxiliares
+def slugify(text):
+    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+    text = re.sub(r'[^\w\s-]', '', text).strip().lower()
+    return re.sub(r'[-\s]+', '-', text)
+
+def validar_senha(password):
+    if len(password) < 6:
+        return False, "A senha deve ter no mínimo 6 dígitos."
+    if not any(c.isupper() for c in password):
+        return False, "A senha deve conter pelo menos uma letra maiúscula."
+    if not any(c.isdigit() for c in password):
+        return False, "A senha deve conter pelo menos um número."
+    return True, ""
+
 # Modelos de Banco de Dados
 class Configuracao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -28,6 +45,7 @@ class Configuracao(db.Model):
     fidelidade_ativa = db.Column(db.Boolean, default=True)
     fidelidade_cortes_necessarios = db.Column(db.Integer, default=10)
     notificacao_minutos = db.Column(db.Integer, default=15)
+    ativo = db.Column(db.Boolean, default=True) # Quinta alteração: campo para habilitar/desabilitar
     
     usuarios = db.relationship('Usuario', backref='barbearia', lazy=True, cascade="all, delete-orphan")
     clientes = db.relationship('Cliente', backref='barbearia', lazy=True, cascade="all, delete-orphan")
@@ -89,14 +107,12 @@ class Fila(db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-    # Diferenciamos os IDs usando um prefixo para evitar que um Cliente logue como Usuario
     user_id_str = str(user_id)
     if user_id_str.startswith('u_'):
         return Usuario.query.get(int(user_id_str[2:]))
     elif user_id_str.startswith('c_'):
         return Cliente.query.get(int(user_id_str[2:]))
     
-    # Fallback para compatibilidade (tenta Usuario primeiro)
     user = Usuario.query.get(int(user_id))
     if user:
         return user
@@ -108,7 +124,7 @@ with app.app_context():
     if not Usuario.query.filter_by(username='admin').first():
         admin = Usuario(
             username='admin',
-            password=generate_password_hash('admin123', method='pbkdf2:sha256'),
+            password=generate_password_hash('Admin123', method='pbkdf2:sha256'),
             is_admin=True,
             is_superadmin=True
         )
@@ -126,7 +142,7 @@ def login_global():
         password = request.form.get('password')
         user = Usuario.query.filter_by(username=username, is_superadmin=True).first()
         if user and check_password_hash(user.password, password):
-            user.id = f"u_{user.id}" # Força o prefixo no login
+            user.id = f"u_{user.id}"
             login_user(user)
             return redirect(url_for('index_root'))
         else:
@@ -152,13 +168,20 @@ def cadastrar_barbearia():
         
     if request.method == 'POST':
         nome = request.form.get('nome')
-        slug = request.form.get('slug').lower().strip().replace(' ', '-')
+        # Segunda alteração: slug automático
+        slug = slugify(nome)
         username = request.form.get('username')
         password = request.form.get('password')
         
-        if Configuracao.query.filter_by(slug=slug).first():
-            flash('Este slug já está em uso.', 'danger')
+        # Quarta alteração: validação de senha
+        valida, msg = validar_senha(password)
+        if not valida:
+            flash(msg, 'danger')
             return redirect(url_for('cadastrar_barbearia'))
+
+        if Configuracao.query.filter_by(slug=slug).first():
+            # Se o slug base já existe, adiciona um sufixo aleatório ou numérico
+            slug = f"{slug}-{datetime.now().strftime('%H%M%S')}"
         
         if Usuario.query.filter_by(username=username).first():
             flash('Este nome de usuário já está em uso.', 'danger')
@@ -175,7 +198,6 @@ def cadastrar_barbearia():
             barbearia_id=nova_barbearia.id
         )
         
-        # Adicionar serviços padrão
         servicos = [
             Servico(nome='Corte Masculino', preco=35.00, barbearia_id=nova_barbearia.id),
             Servico(nome='Barba', preco=25.00, barbearia_id=nova_barbearia.id),
@@ -190,6 +212,23 @@ def cadastrar_barbearia():
         return redirect(url_for('index_root'))
         
     return render_template('cadastrar_barbearia.html')
+
+@app.route('/editar_barbearia/<int:id>', methods=['GET', 'POST'])
+@login_required
+def editar_barbearia(id):
+    if not getattr(current_user, 'is_superadmin', False):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index_root'))
+    
+    barbearia = Configuracao.query.get_or_404(id)
+    if request.method == 'POST':
+        barbearia.nome_barbearia = request.form.get('nome')
+        barbearia.ativo = 'ativo' in request.form
+        db.session.commit()
+        flash('Barbearia atualizada com sucesso!', 'success')
+        return redirect(url_for('index_root'))
+    
+    return render_template('cadastrar_barbearia.html', barbearia=barbearia)
 
 @app.route('/excluir_barbearia/<int:id>')
 @login_required
@@ -234,7 +273,6 @@ def verificar_notificacoes(slug):
     if current_user.is_authenticated and not getattr(current_user, 'is_admin', False):
         cliente_id = current_user.id
     else:
-        # Tenta pegar o telefone da sessão para clientes não logados
         telefone = session.get('cliente_telefone')
         if telefone:
             cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
@@ -248,257 +286,66 @@ def verificar_notificacoes(slug):
         agendamento = Agendamento.query.filter(
             Agendamento.cliente_id == cliente_id,
             Agendamento.barbearia_id == config.id,
-            Agendamento.status.in_(['Pendente', 'Confirmado']),
             Agendamento.data_hora > agora,
-            Agendamento.data_hora <= limite
+            Agendamento.data_hora <= limite,
+            Agendamento.status == 'Confirmado'
         ).first()
         
         if agendamento:
             return jsonify({
                 'notificar': True,
-                'mensagem': f"Lembrete: Seu corte de cabelo está agendado para as {agendamento.data_hora.strftime('%H:%M')}!",
-                'id': agendamento.id
+                'mensagem': f"Lembrete: Seu agendamento é às {agendamento.data_hora.strftime('%H:%M')}!"
             })
             
     return jsonify({'notificar': False})
 
-# Rotas de Autenticação Admin
-@app.route('/<slug>/login', methods=['GET', 'POST'])
-def login(slug):
+# --- ROTAS DA BARBEARIA ---
+@app.route('/<slug>')
+def home_cliente(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if current_user.is_authenticated and getattr(current_user, 'is_admin', False):
-        if current_user.barbearia_id == config.id or current_user.is_superadmin:
-            return redirect(url_for('index', slug=slug))
-            
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user = Usuario.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password, password):
-            if user.is_superadmin or user.barbearia_id == config.id:
-                user.id = f"u_{user.id}" # Força o prefixo no login
-                login_user(user)
-                return redirect(url_for('index', slug=slug))
-            else:
-                flash('Você não tem permissão para acessar esta unidade.', 'danger')
-        else:
-            flash('Usuário ou senha inválidos', 'danger')
-    return render_template('login.html', config=config)
+    if not config.ativo:
+        return "Esta barbearia está temporariamente desativada. Entre em contato com o administrador.", 403
+    return render_template('cliente_home.html', config=config)
 
-@app.route('/logout')
-@login_required
-def logout():
-    is_super = getattr(current_user, 'is_superadmin', False)
-    logout_user()
-    if is_super:
-        return redirect(url_for('login_global'))
-    return redirect(url_for('index_root'))
-
-# --- ÁREA DO CLIENTE ---
-@app.route('/<slug>/login_cliente', methods=['GET', 'POST'])
+@app.route('/<slug>/login', methods=['GET', 'POST'])
 def login_cliente(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if current_user.is_authenticated and not getattr(current_user, 'is_admin', False):
-        if current_user.barbearia_id == config.id:
-            return redirect(url_for('cliente_painel', slug=slug))
-            
     if request.method == 'POST':
         telefone = request.form.get('telefone')
         cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
         if cliente:
-            session['cliente_telefone'] = telefone
-            cliente.id = f"c_{cliente.id}" # Força o prefixo no login
+            cliente.id = f"c_{cliente.id}"
             login_user(cliente)
-            return redirect(url_for('cliente_painel', slug=slug))
+            return redirect(url_for('painel_cliente', slug=slug))
         else:
-            flash('Telefone não encontrado. Faça um agendamento primeiro!', 'warning')
-            return redirect(url_for('agendar_cliente', slug=slug))
+            flash('Telefone não encontrado.', 'danger')
     return render_template('cliente_login.html', config=config)
 
-@app.route('/<slug>/cliente/painel')
+@app.route('/logout')
 @login_required
-def cliente_painel(slug):
+def logout():
+    logout_user()
+    return redirect(url_for('index_root'))
+
+@app.route('/<slug>/painel')
+@login_required
+def painel_cliente(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if getattr(current_user, 'is_admin', False):
-        return redirect(url_for('index', slug=slug))
-    if current_user.barbearia_id != config.id:
+    if not hasattr(current_user, 'barbearia_id') or current_user.barbearia_id != config.id:
         logout_user()
         return redirect(url_for('login_cliente', slug=slug))
         
-    agendamentos = Agendamento.query.filter_by(cliente_id=current_user.id, barbearia_id=config.id).order_by(Agendamento.data_hora.desc()).all()
-    return render_template('cliente_painel.html', cliente=current_user, agendamentos=agendamentos, config=config)
-
-@app.route('/<slug>/cliente/cancelar/<int:id>')
-@login_required
-def cancelar_agendamento_cliente(slug, id):
-    config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
-    if agendamento.cliente_id != current_user.id:
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('cliente_painel', slug=slug))
-    if agendamento.status in ['Pendente', 'Confirmado']:
-        agendamento.status = 'Cancelado'
-        db.session.commit()
-        flash('Agendamento cancelado com sucesso.', 'success')
-    else:
-        flash('Este agendamento não pode mais ser cancelado.', 'warning')
-    return redirect(url_for('cliente_painel', slug=slug))
-
-@app.route('/<slug>/logout_cliente')
-def logout_cliente(slug):
-    logout_user()
-    return redirect(url_for('home_cliente', slug=slug))
-
-# --- FILA DIGITAL ---
-@app.route('/<slug>/fila/entrar', methods=['GET', 'POST'])
-def entrar_fila(slug):
-    config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if request.method == 'POST':
-        nome = request.form.get('nome')
-        whatsapp = request.form.get('whatsapp')
-        servico_id = request.form.get('servico_id')
-        barbeiro_id = request.form.get('barbeiro_id')
-        if barbeiro_id == "": barbeiro_id = None
-        
-        # Calcular próxima posição
-        ultima_posicao = db.session.query(db.func.max(Fila.posicao)).filter_by(
-            barbearia_id=config.id, 
-            status='aguardando'
-        ).scalar() or 0
-        
-        novo_item = Fila(
-            cliente_nome=nome,
-            whatsapp=whatsapp,
-            servico_id=servico_id,
-            barbearia_id=config.id,
-            barbeiro_id=barbeiro_id,
-            posicao=ultima_posicao + 1
-        )
-        db.session.add(novo_item)
-        db.session.commit()
-        return redirect(url_for('acompanhar_fila', slug=slug, item_id=novo_item.id))
-        
-    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
-    return render_template('fila_entrar.html', barbearia=config, servicos=servicos)
-
-@app.route('/<slug>/fila/acompanhar/<int:item_id>')
-def acompanhar_fila(slug, item_id):
-    config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    item = Fila.query.get_or_404(item_id)
-    
-    # Pessoas na frente (status 'aguardando' e posição menor)
-    faltam = Fila.query.filter(
-        Fila.barbearia_id == config.id,
-        Fila.status == 'aguardando',
-        Fila.posicao < item.posicao
-    ).count()
-    
-    tempo_estimado = faltam * 30 # Estimativa simples de 30 min por pessoa
-    
-    return render_template('fila_acompanhar.html', item=item, faltam=faltam, tempo_estimado=tempo_estimado, config=config)
-
-@app.route('/api/<slug>/fila/status/<int:item_id>')
-def api_fila_status(slug, item_id):
-    config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    item = Fila.query.get_or_404(item_id)
-    
-    faltam = Fila.query.filter(
-        Fila.barbearia_id == config.id,
-        Fila.status == 'aguardando',
-        Fila.posicao < item.posicao
-    ).count()
-    
-    return jsonify({
-        'status': item.status,
-        'posicao': item.posicao,
-        'faltam': faltam,
-        'tempo_estimado': faltam * 30
-    })
-
-@app.route('/<slug>/admin/fila')
-@login_required
-def fila_painel(slug):
-    config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False):
-        return redirect(url_for('home_cliente', slug=slug))
-        
-    fila = Fila.query.filter(
-        Fila.barbearia_id == config.id,
-        Fila.status.in_(['aguardando', 'chamado', 'atendendo'])
-    ).order_by(Fila.posicao).all()
-    
-    return render_template('fila_painel.html', fila=fila, config=config)
-
-@app.route('/admin/fila/chamar/<int:id>')
-@login_required
-def chamar_cliente_fila(id):
-    item = Fila.query.get_or_404(id)
-    item.status = 'chamado'
-    db.session.commit()
-    config = Configuracao.query.get(item.barbearia_id)
-    return redirect(url_for('fila_painel', slug=config.slug))
-
-@app.route('/admin/fila/atender/<int:id>')
-@login_required
-def atender_cliente_fila(id):
-    item = Fila.query.get_or_404(id)
-    item.status = 'atendendo'
-    db.session.commit()
-    config = Configuracao.query.get(item.barbearia_id)
-    return redirect(url_for('fila_painel', slug=config.slug))
-
-@app.route('/admin/fila/finalizar/<int:id>')
-@login_required
-def finalizar_cliente_fila(id):
-    item = Fila.query.get_or_404(id)
-    item.status = 'finalizado'
-    
-    # Reordenar posições dos que ficaram
-    restantes = Fila.query.filter(
-        Fila.barbearia_id == item.barbearia_id,
-        Fila.status == 'aguardando',
-        Fila.posicao > item.posicao
-    ).all()
-    for r in restantes:
-        r.posicao -= 1
-        
-    db.session.commit()
-    config = Configuracao.query.get(item.barbearia_id)
-    return redirect(url_for('fila_painel', slug=config.slug))
-
-@app.route('/admin/fila/ausente/<int:id>')
-@login_required
-def marcar_ausente_fila(id):
-    item = Fila.query.get_or_404(id)
-    item.status = 'ausente'
-    
-    # Reordenar posições
-    restantes = Fila.query.filter(
-        Fila.barbearia_id == item.barbearia_id,
-        Fila.status == 'aguardando',
-        Fila.posicao > item.posicao
-    ).all()
-    for r in restantes:
-        r.posicao -= 1
-        
-    db.session.commit()
-    config = Configuracao.query.get(item.barbearia_id)
-    return redirect(url_for('fila_painel', slug=config.slug))
-
-@app.route('/<slug>')
-def home_cliente(slug):
-    config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
-    return render_template('cliente_home.html', servicos=servicos, config=config)
+    agendamentos = Agendamento.query.filter_by(cliente_id=current_user.id).order_by(Agendamento.data_hora.desc()).all()
+    return render_template('cliente_painel.html', agendamentos=agendamentos, config=config)
 
 @app.route('/<slug>/agendamento/confirmacao/<int:agendamento_id>')
 def agendamento_confirmacao(slug, agendamento_id):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
     agendamento = Agendamento.query.get_or_404(agendamento_id)
-    return render_template('cliente_agendamento_status.html', config=config, agendamento=agendamento)
+    return render_template('cliente_agendamento_status.html', agendamento=agendamento, config=config)
 
-@app.route('/api/<slug>/agendamento/status/<int:agendamento_id>')
-def api_agendamento_status(slug, agendamento_id):
+@app.route('/api/agendamento/status/<int:agendamento_id>')
+def api_agendamento_status(agendamento_id):
     agendamento = Agendamento.query.get_or_404(agendamento_id)
     return jsonify({
         'status': agendamento.status,
@@ -508,6 +355,10 @@ def api_agendamento_status(slug, agendamento_id):
 @app.route('/<slug>/agendar', methods=['GET', 'POST'])
 def agendar_cliente(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not config.ativo:
+        flash('Esta barbearia está desativada.', 'danger')
+        return redirect(url_for('index_root'))
+
     if request.method == 'POST':
         nome = request.form.get('nome')
         telefone = request.form.get('telefone')
@@ -538,7 +389,6 @@ def agendar_cliente(slug):
             db.session.add(cliente)
             db.session.flush()
 
-        # Salva o telefone na sessão para notificações mesmo sem login formal
         session['cliente_telefone'] = telefone
 
         barbeiro_id = request.form.get('barbeiro_id')
@@ -549,10 +399,7 @@ def agendar_cliente(slug):
         db.session.commit()
         flash('Agendamento solicitado! Aguarde a confirmação do barbeiro.', 'success')
         
-        # Garantimos que o telefone está na sessão para a tela de confirmação e notificações
         session['cliente_telefone'] = telefone
-        
-        # Redirecionamos para a tela de confirmação específica do cliente
         return redirect(url_for('agendamento_confirmacao', slug=slug, agendamento_id=novo.id))
 
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
@@ -704,7 +551,6 @@ def configuracoes(slug):
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     if request.method == 'POST':
         config.nome_barbearia = request.form.get('nome_barbearia')
-        # Não permitimos mudar o slug aqui para evitar quebrar links, ou poderíamos implementar com cuidado
         config.horario_abertura = request.form.get('horario_abertura')
         config.horario_fechamento = request.form.get('horario_fechamento')
         config.intervalo_minutos = int(request.form.get('intervalo_minutos', 30))
@@ -726,6 +572,12 @@ def novo_barbeiro(slug):
     username = request.form.get('username')
     password = request.form.get('password')
     
+    # Quarta alteração: validação de senha
+    valida, msg = validar_senha(password)
+    if not valida:
+        flash(msg, 'danger')
+        return redirect(url_for('configuracoes', slug=slug))
+
     if Usuario.query.filter_by(username=username).first():
         flash('Este nome de usuário já está em uso.', 'danger')
     else:
@@ -740,6 +592,36 @@ def novo_barbeiro(slug):
         flash('Barbeiro adicionado com sucesso!', 'success')
     return redirect(url_for('configuracoes', slug=slug))
 
+# Primeira alteração: Edição de Barbeiro
+@app.route('/<slug>/barbeiro/editar/<int:id>', methods=['POST'])
+@login_required
+def editar_barbeiro(slug, id):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+        return redirect(url_for('home_cliente', slug=slug))
+    
+    barbeiro = Usuario.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    novo_username = request.form.get('username')
+    nova_senha = request.form.get('password')
+    
+    if novo_username:
+        existente = Usuario.query.filter_by(username=novo_username).first()
+        if existente and existente.id != barbeiro.id:
+            flash('Este nome de usuário já está em uso.', 'danger')
+            return redirect(url_for('configuracoes', slug=slug))
+        barbeiro.username = novo_username
+    
+    if nova_senha:
+        valida, msg = validar_senha(nova_senha)
+        if not valida:
+            flash(msg, 'danger')
+            return redirect(url_for('configuracoes', slug=slug))
+        barbeiro.password = generate_password_hash(nova_senha, method='pbkdf2:sha256')
+        
+    db.session.commit()
+    flash('Barbeiro atualizado com sucesso!', 'success')
+    return redirect(url_for('configuracoes', slug=slug))
+
 @app.route('/<slug>/barbeiro/excluir/<int:id>')
 @login_required
 def excluir_barbeiro(slug, id):
@@ -747,52 +629,131 @@ def excluir_barbeiro(slug, id):
     if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
         return redirect(url_for('home_cliente', slug=slug))
     
-    barbeiro = Usuario.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
-    
-    # Não permitir excluir a si mesmo ou o último admin se necessário, mas aqui vamos simplificar
-    if barbeiro.id == current_user.id:
+    if id == current_user.id:
         flash('Você não pode excluir seu próprio usuário.', 'danger')
-    else:
-        db.session.delete(barbeiro)
-        db.session.commit()
-        flash('Barbeiro removido.', 'success')
+        return redirect(url_for('configuracoes', slug=slug))
+        
+    barbeiro = Usuario.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    db.session.delete(barbeiro)
+    db.session.commit()
+    flash('Barbeiro removido.', 'success')
     return redirect(url_for('configuracoes', slug=slug))
 
 @app.route('/<slug>/servico/novo', methods=['POST'])
 @login_required
 def novo_servico(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+        return redirect(url_for('home_cliente', slug=slug))
+    
     nome = request.form.get('nome')
-    preco = float(request.form.get('preco'))
+    preco = float(request.form.get('preco', 0))
+    
     novo = Servico(nome=nome, preco=preco, barbearia_id=config.id)
     db.session.add(novo)
     db.session.commit()
     flash('Serviço adicionado!', 'success')
     return redirect(url_for('configuracoes', slug=slug))
 
+# Primeira alteração: Edição de Serviço
+@app.route('/<slug>/servico/editar/<int:id>', methods=['POST'])
+@login_required
+def editar_servico(slug, id):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+        return redirect(url_for('home_cliente', slug=slug))
+    
+    servico = Servico.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    servico.nome = request.form.get('nome')
+    servico.preco = float(request.form.get('preco', 0))
+    
+    db.session.commit()
+    flash('Serviço atualizado!', 'success')
+    return redirect(url_for('configuracoes', slug=slug))
+
 @app.route('/<slug>/servico/excluir/<int:id>')
 @login_required
 def excluir_servico(slug, id):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+        return redirect(url_for('home_cliente', slug=slug))
+    
     servico = Servico.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
-    if Agendamento.query.filter_by(servico_id=id).first():
-        flash('Não é possível excluir um serviço com agendamentos.', 'danger')
-    else:
-        db.session.delete(servico)
-        db.session.commit()
-        flash('Serviço excluído!', 'success')
+    db.session.delete(servico)
+    db.session.commit()
+    flash('Serviço removido.', 'success')
     return redirect(url_for('configuracoes', slug=slug))
 
-@app.route('/<slug>/cliente/excluir/<int:id>')
-@login_required
-def excluir_cliente(slug, id):
+# --- FILA DE ESPERA ---
+@app.route('/<slug>/fila')
+def fila_acompanhar(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    cliente = Cliente.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
-    Agendamento.query.filter_by(cliente_id=id).delete()
-    db.session.delete(cliente)
+    fila = Fila.query.filter_by(barbearia_id=config.id).filter(Fila.status.in_(['aguardando', 'chamado', 'atendendo'])).order_by(Fila.posicao).all()
+    return render_template('fila_acompanhar.html', fila=fila, config=config)
+
+@app.route('/<slug>/fila/entrar', methods=['GET', 'POST'])
+def fila_entrar(slug):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if request.method == 'POST':
+        nome = request.form.get('nome')
+        whatsapp = request.form.get('whatsapp')
+        servico_id = request.form.get('servico_id')
+        
+        ultima_posicao = db.session.query(db.func.max(Fila.posicao)).filter_by(barbearia_id=config.id).scalar() or 0
+        
+        nova_entrada = Fila(
+            cliente_nome=nome,
+            whatsapp=whatsapp,
+            servico_id=servico_id,
+            barbearia_id=config.id,
+            posicao=ultima_posicao + 1
+        )
+        db.session.add(nova_entrada)
+        db.session.commit()
+        flash('Você entrou na fila! Acompanhe sua posição.', 'success')
+        return redirect(url_for('fila_acompanhar', slug=slug))
+        
+    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
+    return render_template('fila_entrar.html', servicos=servicos, config=config)
+
+@app.route('/<slug>/admin/fila')
+@login_required
+def fila_painel(slug):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+        return redirect(url_for('home_cliente', slug=slug))
+        
+    fila = Fila.query.filter_by(barbearia_id=config.id).filter(Fila.status.in_(['aguardando', 'chamado', 'atendendo'])).order_by(Fila.posicao).all()
+    barbeiros = Usuario.query.filter_by(barbearia_id=config.id, is_admin=True).all()
+    return render_template('fila_painel.html', fila=fila, barbeiros=barbeiros, config=config)
+
+@app.route('/<slug>/admin/fila/chamar/<int:id>')
+@login_required
+def fila_chamar(slug, id):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    entrada = Fila.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    entrada.status = 'chamado'
     db.session.commit()
-    flash('Cliente excluído.', 'success')
-    return redirect(url_for('listar_clientes', slug=slug))
+    return redirect(url_for('fila_painel', slug=slug))
+
+@app.route('/<slug>/admin/fila/atender/<int:id>')
+@login_required
+def fila_atender(slug, id):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    entrada = Fila.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    entrada.status = 'atendendo'
+    entrada.barbeiro_id = current_user.id
+    db.session.commit()
+    return redirect(url_for('fila_painel', slug=slug))
+
+@app.route('/<slug>/admin/fila/finalizar/<int:id>')
+@login_required
+def fila_finalizar(slug, id):
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    entrada = Fila.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    entrada.status = 'finalizado'
+    db.session.commit()
+    return redirect(url_for('fila_painel', slug=slug))
 
 if __name__ == '__main__':
     app.run(debug=True)
