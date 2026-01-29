@@ -121,6 +121,21 @@ def load_user(user_id):
 # Inicialização do Banco de Dados
 with app.app_context():
     db.create_all()
+    
+    # Garantir que a coluna 'ativo' exista (necessário para bancos já existentes)
+    try:
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            # Verifica se a coluna já existe
+            inspector = db.inspect(db.engine)
+            columns = [c['name'] for c in inspector.get_columns('configuracao')]
+            if 'ativo' not in columns:
+                conn.execute(text("ALTER TABLE configuracao ADD COLUMN ativo BOOLEAN DEFAULT 1"))
+                conn.commit()
+                print("Coluna 'ativo' adicionada com sucesso.")
+    except Exception as e:
+        print(f"Aviso na inicialização: {e}")
+
     if not Usuario.query.filter_by(username='admin').first():
         admin = Usuario(
             username='admin',
