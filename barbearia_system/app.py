@@ -313,7 +313,7 @@ def home_cliente(slug):
     return render_template('cliente_home.html', config=config)
 
 @app.route('/<slug>/login', methods=['GET', 'POST'])
-def login_cliente(slug):
+def login(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
     if request.method == 'POST':
         telefone = request.form.get('telefone')

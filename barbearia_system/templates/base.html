@@ -40,11 +40,11 @@
                             <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') }}">Sair</a></li>
                         {% else %}
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('cliente_painel', slug=config.slug) }}">Meus Agendamentos</a></li>
-                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout_cliente', slug=config.slug) }}">Sair</a></li>
+                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout', slug=config.slug) }}">Sair</a></li>
                         {% endif %}
                     {% else %}
                         {% if config %}
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login_cliente', slug=config.slug) }}">Meus Agendamentos</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login', slug=config.slug) }}">Meus Agendamentos</a></li>
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('login', slug=config.slug) }}">Admin</a></li>
                         {% endif %}
                     {% endif %}
