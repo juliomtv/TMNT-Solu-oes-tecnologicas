@@ -697,7 +697,7 @@ def fila_acompanhar(slug):
     return render_template('fila_acompanhar.html', fila=fila, config=config)
 
 @app.route('/<slug>/fila/entrar', methods=['GET', 'POST'])
-def fila_entrar(slug):
+def entrar_fila(slug):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
     if request.method == 'POST':
         nome = request.form.get('nome')
