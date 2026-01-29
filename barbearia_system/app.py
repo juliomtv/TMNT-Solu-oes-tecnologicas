@@ -235,8 +235,33 @@ def cadastrar_barbearia():
         
         flash('Barbearia cadastrada com sucesso!', 'success')
         return redirect(url_for('index_root'))
-        
+    
     return render_template('cadastrar_barbearia.html')
+
+@app.route('/editar_barbearia/<int:id>')
+@login_required
+def editar_barbearia(id):
+    """Redireciona para as configurações da barbearia para edição"""
+    if not getattr(current_user, 'is_superadmin', False):
+        flash('Acesso restrito ao Super Admin.', 'danger')
+        return redirect(url_for('login_global'))
+    
+    barbearia = Configuracao.query.get_or_404(id)
+    return redirect(url_for('configuracoes', slug=barbearia.slug))
+
+@app.route('/excluir_barbearia/<int:id>')
+@login_required
+def excluir_barbearia(id):
+    """Exclui uma barbearia e todos os seus dados vinculados"""
+    if not getattr(current_user, 'is_superadmin', False):
+        flash('Acesso restrito ao Super Admin.', 'danger')
+        return redirect(url_for('login_global'))
+    
+    barbearia = Configuracao.query.get_or_404(id)
+    db.session.delete(barbearia)
+    db.session.commit()
+    flash(f'Barbearia {barbearia.nome_barbearia} excluída com sucesso.', 'success')
+    return redirect(url_for('index_root'))
 
 # --- ROTAS DA BARBEARIA (CLIENTE E ADMIN LOCAL) ---
 
@@ -306,7 +331,7 @@ def logout():
 
 @app.route('/<slug>/painel')
 @login_required
-def painel_cliente(slug):
+def cliente_painel(slug):
     """Painel onde o cliente vê seus próprios agendamentos"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
     # Verifica se o cliente logado pertence a esta barbearia
@@ -438,8 +463,39 @@ def cancelar_agendamento_admin(slug, id):
     agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
     agendamento.status = 'Cancelado'
     db.session.commit()
-    flash('Agendamento cancelado.', 'info')
+    flash('Agendamento cancelado.', 'warning')
     return redirect(request.referrer or url_for('index', slug=slug))
+
+@app.route('/<slug>/agendamento/cancelar_cliente/<int:id>')
+@login_required
+def cancelar_agendamento_cliente(slug, id):
+    """Cliente cancelando seu próprio agendamento"""
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    agendamento = Agendamento.query.filter_by(id=id, cliente_id=current_user.id).first_or_404()
+    
+    if agendamento.status in ['Concluído', 'Cancelado']:
+        flash('Este agendamento não pode mais ser cancelado.', 'danger')
+    else:
+        agendamento.status = 'Cancelado'
+        db.session.commit()
+        flash('Seu agendamento foi cancelado.', 'success')
+    return redirect(url_for('cliente_painel', slug=slug))
+
+@app.route('/<slug>/agendamento/alterar_data/<int:id>', methods=['POST'])
+@login_required
+def alterar_data_agendamento(slug, id):
+    """Admin alterando a data/hora de um agendamento"""
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not getattr(current_user, 'is_admin', False):
+        return redirect(url_for('home_cliente', slug=slug))
+        
+    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    nova_data = request.form.get('nova_data')
+    if nova_data:
+        agendamento.data_hora = datetime.strptime(nova_data, '%Y-%m-%dT%H:%M')
+        db.session.commit()
+        flash('Data do agendamento atualizada!', 'success')
+    return redirect(url_for('listar_agendamentos', slug=slug))
 
 @app.route('/<slug>/clientes')
 @login_required
@@ -621,7 +677,24 @@ def excluir_servico(slug, id):
     flash('Serviço removido.', 'success')
     return redirect(url_for('configuracoes', slug=slug))
 
-# --- FILA DE ESPERA (ORDEM DE CHEGADA) ---
+@app.route('/<slug>/admin/cliente/excluir/<int:id>')
+@login_required
+def excluir_cliente(slug, id):
+    """Admin excluindo um cliente"""
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    if not getattr(current_user, 'is_admin', False):
+        return redirect(url_for('home_cliente', slug=slug))
+        
+    cliente = Cliente.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    db.session.delete(cliente)
+    db.session.commit()
+    flash('Cliente excluído com sucesso.', 'success')
+    return redirect(url_for('listar_clientes', slug=slug))
+
+@app.route('/<slug>/notificacoes/verificar')
+def verificar_notificacoes(slug):
+    """Placeholder para verificação de notificações"""
+    return jsonify({'notificar': False})# --- FILA DE ESPERA (ORDEM DE CHEGADA) ---
 
 @app.route('/<slug>/fila')
 def fila_acompanhar(slug):
@@ -696,6 +769,16 @@ def fila_finalizar(slug, id):
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
     entrada = Fila.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
     entrada.status = 'finalizado'
+    db.session.commit()
+    return redirect(url_for('fila_painel', slug=slug))
+
+@app.route('/<slug>/admin/fila/ausente/<int:id>')
+@login_required
+def fila_ausente(slug, id):
+    """Admin marcando cliente como ausente na fila"""
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    entrada = Fila.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    entrada.status = 'ausente'
     db.session.commit()
     return redirect(url_for('fila_painel', slug=slug))
 

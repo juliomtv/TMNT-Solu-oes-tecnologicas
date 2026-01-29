@@ -41,15 +41,15 @@
                         </td>
                         <td>
                             {% if item.status == 'aguardando' %}
-                            <a href="{{ url_for('chamar_cliente_fila', id=item.id) }}" class="btn btn-sm btn-primary">Chamar</a>
+                            <a href="{{ url_for('fila_chamar', slug=config.slug, id=item.id) }}" class="btn btn-sm btn-primary">Chamar</a>
                             {% elif item.status == 'chamado' %}
-                            <a href="{{ url_for('atender_cliente_fila', id=item.id) }}" class="btn btn-sm btn-info">Iniciar</a>
+                            <a href="{{ url_for('fila_atender', slug=config.slug, id=item.id) }}" class="btn btn-sm btn-info">Iniciar</a>
                             {% elif item.status == 'atendendo' %}
-                            <a href="{{ url_for('finalizar_cliente_fila', id=item.id) }}" class="btn btn-sm btn-success">Finalizar</a>
+                            <a href="{{ url_for('fila_finalizar', slug=config.slug, id=item.id) }}" class="btn btn-sm btn-success">Finalizar</a>
                             {% endif %}
                             
                             {% if item.status != 'finalizado' %}
-                            <a href="{{ url_for('marcar_ausente_fila', id=item.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Marcar como ausente?')">Ausente</a>
+                            <a href="{{ url_for('fila_ausente', slug=config.slug, id=item.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Marcar como ausente?')">Ausente</a>
                             {% endif %}
                         </td>
                     </tr>
