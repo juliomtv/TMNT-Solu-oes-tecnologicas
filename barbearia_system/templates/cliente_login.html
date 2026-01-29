@@ -1,24 +1,37 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<!-- Página de Login para Clientes -->
 <div class="row justify-content-center">
     <div class="col-md-4">
         <div class="card mt-5">
             <div class="card-header bg-primary text-white text-center">
-                <h4 class="mb-0">Acessar Meus Agendamentos</h4>
+                <h4 class="mb-0">Meus Agendamentos</h4>
             </div>
             <div class="card-body">
+                <!-- Login simplificado via telefone/whatsapp -->
                 <form method="POST">
                     <div class="mb-3">
                         <label class="form-label">Número do WhatsApp</label>
+                        <!-- O cliente entra apenas com o telefone que usou no agendamento -->
                         <input type="text" name="telefone" class="form-control" placeholder="(00) 00000-0000" required>
-                        <div class="form-text">Use o mesmo número que usou para agendar.</div>
+                        <div class="form-text">Use o mesmo número que você utilizou ao realizar o agendamento.</div>
                     </div>
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">Entrar</button>
+                        <button type="submit" class="btn btn-primary">Ver Meus Horários</button>
                     </div>
                 </form>
             </div>
+            <div class="card-footer text-center">
+                <p class="mb-0 small text-muted">Ainda não tem um horário? <a href="{{ url_for('agendar_cliente', slug=config.slug) }}">Agende agora</a>.</p>
+            </div>
+        </div>
+        
+        <!-- Link para o login administrativo (escondido ou discreto) -->
+        <div class="text-center mt-4">
+            <a href="{{ url_for('login_admin', slug=config.slug) }}" class="text-decoration-none text-muted small">
+                Acesso Administrativo
+            </a>
         </div>
     </div>
 </div>

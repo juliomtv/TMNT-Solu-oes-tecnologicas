@@ -1,28 +1,45 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<!-- Página Principal da Barbearia (Visão do Cliente) -->
 <div class="row justify-content-center mt-5">
     <div class="col-md-8 text-center">
+        <!-- Cabeçalho com o nome da barbearia configurado -->
         <h1 class="display-4 mb-4">Bem-vindo à {{ config.nome_barbearia }}</h1>
-        <p class="lead mb-5">Agende seu corte de forma rápida e fácil.</p>
+        <p class="lead mb-5">Agende seu corte de forma rápida e fácil, ou entre na nossa fila digital.</p>
         
         <div class="row mb-5">
             <div class="col-md-6 offset-md-3">
-                <div class="card bg-dark text-white p-4">
-                    <h3>Nossos Serviços</h3>
+                <div class="card bg-dark text-white p-4 shadow-lg">
+                    <h3 class="border-bottom pb-2 mb-3">Nossos Serviços</h3>
+                    <!-- Listagem dos serviços e preços cadastrados pelo admin -->
                     <ul class="list-unstyled mt-3">
                         {% for servico in servicos %}
-                        <li class="mb-2">{{ servico.nome }} - <strong>R$ {{ "%.2f"|format(servico.preco) }}</strong></li>
+                        <li class="mb-2 fs-5">
+                            {{ servico.nome }} - <span class="text-primary fw-bold">R$ {{ "%.2f"|format(servico.preco) }}</span>
+                        </li>
                         {% endfor %}
                     </ul>
-                    <a href="{{ url_for('agendar_cliente', slug=config.slug) }}" class="btn btn-primary btn-lg mt-3">Agendar Horário</a>
-                    <a href="{{ url_for('entrar_fila', slug=config.slug) }}" class="btn btn-outline-light btn-lg mt-3">Entrar na Fila Agora</a>
+                    
+                    <!-- Botões de ação principal -->
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="{{ url_for('agendar_cliente', slug=config.slug) }}" class="btn btn-primary btn-lg">Agendar Horário</a>
+                        <a href="{{ url_for('entrar_fila', slug=config.slug) }}" class="btn btn-outline-light btn-lg">Entrar na Fila Agora</a>
+                    </div>
                 </div>
             </div>
         </div>
         
+        <!-- Rodapé informativo -->
         <div class="text-muted">
-            <p>Horário de Funcionamento: {{ config.horario_abertura }} às {{ config.horario_fechamento }}</p>
+            <p class="mb-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clock me-1" viewBox="0 0 16 16">
+                    <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                </svg>
+                Horário de Funcionamento: <strong>{{ config.horario_abertura }} às {{ config.horario_fechamento }}</strong>
+            </p>
+            <p class="small">Localização: Consulte nosso endereço via WhatsApp.</p>
         </div>
     </div>
 </div>

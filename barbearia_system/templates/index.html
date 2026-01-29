@@ -1,11 +1,13 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<!-- Painel Administrativo da Unidade - Agenda do Dia -->
 <div class="row mb-4">
     <div class="col-md-8">
         <h2>Agenda de Hoje - {{ datetime.now().strftime('%d/%m/%Y') }}</h2>
     </div>
     <div class="col-md-4 text-end">
+        <!-- Botão para o admin criar um agendamento manual -->
         <a href="{{ url_for('novo_agendamento', slug=config.slug) }}" class="btn btn-primary">Novo Agendamento</a>
     </div>
 </div>
@@ -25,6 +27,7 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <!-- Loop pelos agendamentos do dia -->
                     {% for agendamento in agendamentos %}
                     <tr>
                         <td>{{ agendamento.data_hora.strftime('%H:%M') }}</td>
@@ -32,25 +35,30 @@
                         <td>{{ agendamento.barbeiro.username if agendamento.barbeiro else '-' }}</td>
                         <td>{{ agendamento.servico.nome }}</td>
                         <td>
+                            <!-- Badge colorida conforme o status -->
                             <span class="badge {% if agendamento.status == 'Pendente' %}bg-warning{% elif agendamento.status == 'Confirmado' %}bg-primary{% elif agendamento.status == 'Concluído' %}bg-success{% else %}bg-danger{% endif %}">
                                 {{ agendamento.status }}
                             </span>
                         </td>
                         <td>
+                            <!-- Ações administrativas para cada agendamento -->
                             {% if agendamento.status == 'Pendente' %}
                             <a href="{{ url_for('confirmar_agendamento', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-primary">Confirmar</a>
                             {% endif %}
+                            
                             {% if agendamento.status == 'Confirmado' %}
                             <a href="{{ url_for('concluir_agendamento', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-success">Concluir</a>
                             {% endif %}
+                            
                             {% if agendamento.status in ['Pendente', 'Confirmado'] %}
-                            <a href="{{ url_for('cancelar_agendamento_admin', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza?')">Cancelar</a>
+                            <a href="{{ url_for('cancelar_agendamento_admin', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja cancelar?')">Cancelar</a>
                             {% endif %}
                         </td>
                     </tr>
                     {% else %}
+                    <!-- Caso não haja agendamentos para hoje -->
                     <tr>
-                        <td colspan="5" class="text-center">Nenhum agendamento para hoje.</td>
+                        <td colspan="6" class="text-center text-muted py-4">Nenhum agendamento para hoje.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

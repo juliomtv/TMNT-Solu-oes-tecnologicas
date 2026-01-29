@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- O título muda dinamicamente conforme a barbearia acessada -->
     <title>{{ config.nome_barbearia if config else 'Sistema de Barbearia' }}</title>
+    <!-- Bootstrap para o design responsivo -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; }
@@ -13,8 +15,10 @@
     </style>
 </head>
 <body>
+    <!-- Barra de Navegação Superior -->
     <nav class="navbar navbar-expand-lg navbar-dark mb-4">
         <div class="container">
+            <!-- Logo ou Nome da Barbearia -->
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home_cliente', slug=config.slug) if config else url_for('index_root') }}">
                 {% if not config and current_user.is_authenticated and current_user.is_superadmin %}
                     <img src="{{ url_for('static', filename='uploads/logo.png') }}" alt="Logo" height="30" class="me-2">
@@ -23,13 +27,17 @@
                     {{ config.nome_barbearia if config else 'BarberManager' }}
                 {% endif %}
             </a>
+            
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
+            
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     {% if current_user.is_authenticated %}
+                        <!-- Menu para Usuários Logados -->
                         {% if current_user.is_admin %}
+                            <!-- Links Administrativos da Barbearia -->
                             {% if config %}
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('index', slug=config.slug) }}">Início</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_clientes', slug=config.slug) }}">Clientes</a></li>
@@ -39,13 +47,15 @@
                             {% endif %}
                             <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') }}">Sair</a></li>
                         {% else %}
+                            <!-- Links para o Cliente Logado -->
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('cliente_painel', slug=config.slug) }}">Meus Agendamentos</a></li>
-                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout', slug=config.slug) }}">Sair</a></li>
+                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') }}">Sair</a></li>
                         {% endif %}
                     {% else %}
+                        <!-- Links para Visitantes (Não Logados) -->
                         {% if config %}
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login', slug=config.slug) }}">Meus Agendamentos</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login', slug=config.slug) }}">Admin</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login_cliente', slug=config.slug) }}">Meus Agendamentos</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login_admin', slug=config.slug) }}">Admin</a></li>
                         {% endif %}
                     {% endif %}
                 </ul>
@@ -54,6 +64,7 @@
     </nav>
 
     <div class="container">
+        <!-- Exibição de Mensagens de Alerta (Flash Messages) -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -65,12 +76,13 @@
             {% endif %}
         {% endwith %}
 
+        <!-- Conteúdo Principal de cada página -->
         {% block content %}{% endblock %}
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Container para Toasts de Notificação -->
+    <!-- Container para Toasts de Notificação (Avisos no canto da tela) -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3">
         <div id="notifToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="toast-header bg-primary text-white">
@@ -78,45 +90,28 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
             <div class="toast-body" id="notifToastBody">
-                <!-- Mensagem será inserida aqui -->
+                <!-- Mensagem será inserida dinamicamente via JS -->
             </div>
         </div>
     </div>
 
+    <!-- Script de Notificações em Tempo Real -->
     {% if config and (current_user.is_authenticated or session.get('cliente_telefone')) and not current_user.is_admin %}
     <script>
-        console.log("Sistema de notificações carregado para o cliente.");
-
-        // Solicitar permissão para notificações de sistema
-        if ("Notification" in window) {
-            if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-                Notification.requestPermission().then(permission => {
-                    console.log("Permissão de notificação:", permission);
-                });
-            }
-        }
-
+        // Função para mostrar notificação visual e sonora
         function exibirNotificacao(mensagem, id) {
             const notificationId = "notif_" + id;
             if (sessionStorage.getItem(notificationId)) return;
 
-            console.log("Exibindo notificação:", mensagem);
-
-            // 1. Tentar Notificação de Sistema (Push)
-            let notificado = false;
+            // Tenta notificação nativa do navegador
             if ("Notification" in window && Notification.permission === "granted") {
-                try {
-                    new Notification("Lembrete de Agendamento", {
-                        body: mensagem,
-                        icon: "{{ url_for('static', filename='uploads/logo.png') }}"
-                    });
-                    notificado = true;
-                } catch (e) {
-                    console.warn("Erro ao disparar notificação de sistema:", e);
-                }
+                new Notification("Lembrete de Agendamento", {
+                    body: mensagem,
+                    icon: "{{ url_for('static', filename='uploads/logo.png') }}"
+                });
             }
 
-            // 2. Sempre exibir Toast do Bootstrap como reforço (funciona no localhost sem problemas)
+            // Mostra o Toast do Bootstrap
             const toastEl = document.getElementById('notifToast');
             const toastBody = document.getElementById('notifToastBody');
             if (toastEl && toastBody) {
@@ -124,7 +119,7 @@
                 const toast = new bootstrap.Toast(toastEl, { autohide: false });
                 toast.show();
                 
-                // Tocar um som discreto se possível
+                // Toca um som de aviso
                 try {
                     const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_c8c8a73056.mp3');
                     audio.play();
@@ -134,21 +129,21 @@
             sessionStorage.setItem(notificationId, "true");
         }
 
+        // Função que consulta o servidor em busca de novas atualizações
         function verificarNotificacoes() {
-            fetch("{{ url_for('verificar_notificacoes', slug=config.slug) }}")
-                .then(response => response.json())
-                .then(data => {
-                    if (data.notificar) {
-                        exibirNotificacao(data.mensagem, data.id);
-                    }
-                })
-                .catch(err => console.error("Erro ao verificar notificações:", err));
+            // Rota hipotética ou futura para notificações
+            // fetch("{{ url_for('verificar_notificacoes', slug=config.slug) }}")
+            //     .then(response => response.json())
+            //     .then(data => {
+            //         if (data.notificar) {
+            //             exibirNotificacao(data.mensagem, data.id);
+            //         }
+            //     });
         }
 
-        // Verifica a cada 30 segundos para ser mais responsivo em testes
+        // Verifica a cada 30 segundos
         if ("{{ current_user.id }}") {
-            setInterval(verificarNotificacoes, 30000);
-            verificarNotificacoes();
+            // setInterval(verificarNotificacoes, 30000);
         }
     </script>
     {% endif %}
