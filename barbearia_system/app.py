@@ -121,19 +121,6 @@ def load_user(user_id):
 # Inicialização do Banco de Dados
 with app.app_context():
     db.create_all()
-    # Garantir que colunas novas existam em bancos de dados antigos
-    try:
-        with db.engine.connect() as conn:
-            from sqlalchemy import text
-            # Verifica se a coluna 'ativo' existe
-            result = conn.execute(text("PRAGMA table_info(configuracao)"))
-            columns = [row[1] for row in result]
-            if 'ativo' not in columns:
-                conn.execute(text("ALTER TABLE configuracao ADD COLUMN ativo BOOLEAN DEFAULT 1"))
-                conn.commit()
-    except Exception as e:
-        print(f"Erro na migração automática: {e}")
-
     if not Usuario.query.filter_by(username='admin').first():
         admin = Usuario(
             username='admin',
