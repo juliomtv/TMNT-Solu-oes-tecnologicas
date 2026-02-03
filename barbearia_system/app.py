@@ -352,14 +352,14 @@ def login_admin(slug):
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        user = Usuario.query.filter_by(username=username, barbearia_id=config.id).first()
+        user = Usuario.query.filter_by(username=username, barbearia_id=config.id, is_admin=True).first()
         
         if user and check_password_hash(user.password, password):
             user.id = f"u_{user.id}"
             login_user(user)
             return redirect(url_for('index', slug=slug))
         else:
-            flash('Usuário ou senha inválidos.', 'danger')
+            flash('Usuário ou senha inválidos ou acesso não permitido.', 'danger')
             
     return render_template('login.html', config=config)
 
@@ -622,20 +622,18 @@ def novo_barbeiro(slug):
         return redirect(url_for('home_cliente', slug=slug))
     
     username = title_case(request.form.get('username'))
-    password = request.form.get('password')
     
-    valida, msg = validar_senha(password)
-    if not valida:
-        flash(msg, 'danger')
-        return redirect(url_for('configuracoes', slug=slug))
-
     if Usuario.query.filter_by(username=username, barbearia_id=config.id).first():
         flash('Este nome de usuário já está em uso nesta barbearia.', 'danger')
     else:
+        # Barbeiros agora não precisam de senha, pois não fazem login.
+        # Definimos uma senha aleatória/inválida apenas para satisfazer o banco de dados.
+        import uuid
+        random_password = str(uuid.uuid4())
         novo = Usuario(
             username=username,
-            password=generate_password_hash(password, method='pbkdf2:sha256'),
-            is_admin=True,
+            password=generate_password_hash(random_password, method='pbkdf2:sha256'),
+            is_admin=False, # Alterado para False pois barbeiros não precisam de acesso admin
             barbearia_id=config.id
         )
         db.session.add(novo)
@@ -652,21 +650,15 @@ def editar_barbeiro(slug, id):
         return redirect(url_for('home_cliente', slug=slug))
     
     barbeiro = Usuario.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
-    novo_username = title_case(request.form.get('username'))
-     if novo_username:
+    novo_username = request.form.get('username')
+    
+    if novo_username:
         novo_username = title_case(novo_username)
         existente = Usuario.query.filter_by(username=novo_username, barbearia_id=config.id).first()
         if existente and existente.id != barbeiro.id:
             flash('Este nome de usuário já está em uso nesta barbearia.', 'danger')
             return redirect(url_for('configuracoes', slug=slug))
         barbeiro.username = novo_username
-    
-    if nova_senha:
-        valida, msg = validar_senha(nova_senha)
-        if not valida:
-            flash(msg, 'danger')
-            return redirect(url_for('configuracoes', slug=slug))
-        barbeiro.password = generate_password_hash(nova_senha, method='pbkdf2:sha256')
         
     db.session.commit()
     flash('Barbeiro atualizado com sucesso!', 'success')
@@ -820,7 +812,9 @@ def fila_painel(slug):
         return redirect(url_for('home_cliente', slug=slug))
         
     fila = Fila.query.filter_by(barbearia_id=config.id).filter(Fila.status.in_(['aguardando', 'chamado', 'atendendo'])).order_by(Fila.posicao).all()
-    barbeiros = Usuario.query.filter_by(barbearia_id=config.id, is_admin=True).all()
+    # Lista todos os usuários da barbearia que não são o dono (assumindo que o dono é o primeiro admin ou tem lógica específica)
+    # Aqui filtramos para mostrar todos os barbeiros cadastrados na unidade
+    barbeiros = Usuario.query.filter_by(barbearia_id=config.id).all()
     return render_template('fila_painel.html', fila=fila, barbeiros=barbeiros, config=config)
 
 @app.route('/<slug>/admin/fila/chamar/<int:id>')
