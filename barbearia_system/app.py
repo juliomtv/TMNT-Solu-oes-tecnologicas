@@ -9,6 +9,9 @@ import unicodedata
 
 # Inicialização da aplicação Flask
 app = Flask(__name__)
+
+# Adiciona hasattr e getattr ao contexto do Jinja2 para uso nos templates
+app.jinja_env.globals.update(hasattr=hasattr, getattr=getattr)
 app.config['SECRET_KEY'] = 'chave-secreta-barbearia'
 # Configuração do Banco de Dados SQLite
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'barbearia.db')

@@ -20,7 +20,7 @@
         <div class="container">
             <!-- Logo ou Nome da Barbearia -->
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home_cliente', slug=config.slug) if config else url_for('index_root') }}">
-                {% if not config and current_user.is_authenticated and hasattr(current_user, 'is_superadmin') and current_user.is_superadmin %}
+                {% if not config and current_user.is_authenticated and current_user.is_superadmin if hasattr(current_user, 'is_superadmin') else False %}
                     <img src="{{ url_for('static', filename='uploads/logo.png') }}" alt="Logo" height="30" class="me-2">
                     TMNT Soluções
                 {% else %}
@@ -36,7 +36,7 @@
                 <ul class="navbar-nav ms-auto">
                     {% if current_user.is_authenticated %}
                         <!-- Menu para Usuários Logados -->
-                        {% if getattr(current_user, 'is_admin', False) %}
+                        {% if current_user.is_admin if hasattr(current_user, 'is_admin') else False %}
                             <!-- Links Administrativos da Barbearia -->
                             {% if config %}
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('index', slug=config.slug) }}">Início</a></li>
@@ -46,7 +46,7 @@
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('configuracoes', slug=config.slug) }}">Configurações</a></li>
                             {% endif %}
                             <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout', slug=config.slug) if config else url_for('logout') }}">Sair</a></li>
-                        {% elif hasattr(current_user, 'is_superadmin') and current_user.is_superadmin %}
+                        {% elif current_user.is_superadmin if hasattr(current_user, 'is_superadmin') else False %}
                             <!-- Links para Super Admin -->
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('index_root') }}">Painel Global</a></li>
                             <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') }}">Sair</a></li>
@@ -100,7 +100,7 @@
     </div>
 
     <!-- Script de Notificações em Tempo Real -->
-    {% if config and (current_user.is_authenticated or session.get('cliente_telefone')) and not getattr(current_user, 'is_admin', False) %}
+    {% if config and (current_user.is_authenticated or session.get('cliente_telefone')) and not (current_user.is_admin if hasattr(current_user, 'is_admin') else False) %}
     <script>
         // Função para mostrar notificação visual e sonora
         function exibirNotificacao(mensagem, id) {
@@ -136,7 +136,7 @@
         // Função que consulta o servidor em busca de novas atualizações
         function verificarNotificacoes() {
             // Rota hipotética ou futura para notificações
-            // fetch("{{ url_for('api_notificacoes', slug=config.slug) }}")
+            // fetch("{{ url_for('api_notificacoes', slug=config.slug) if config else '#' }}")
             //     .then(response => response.json())
             //     .then(data => {
             //         if (data.notificar) {
