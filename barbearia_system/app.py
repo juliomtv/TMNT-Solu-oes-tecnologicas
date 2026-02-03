@@ -325,12 +325,12 @@ def cadastrar_admin():
     
     if not username or not password:
         flash('Preencha todos os campos.', 'danger')
-        return redirect(url_for('cadastrar_barbearia'))
+        return redirect(url_for('index_root'))
         
     valida, msg = validar_senha(password)
     if not valida:
         flash(msg, 'danger')
-        return redirect(url_for('cadastrar_barbearia'))
+        return redirect(url_for('index_root'))
 
     if Administrador.query.filter_by(username=username).first():
         flash('Este nome de usuário já está em uso.', 'danger')
