@@ -78,6 +78,9 @@ class Administrador(UserMixin, db.Model):
     def is_superadmin(self):
         return True
 
+    def get_id(self):
+        return f"a_{self.id}"
+
 class Usuario(UserMixin, db.Model):
     """Modelo para usuários do sistema (Barbeiros e Admins da Unidade)"""
     id = db.Column(db.Integer, primary_key=True)
@@ -85,6 +88,9 @@ class Usuario(UserMixin, db.Model):
     password = db.Column(db.String(200), nullable=False)
     is_admin = db.Column(db.Boolean, default=True) # Pode gerenciar a unidade
     barbearia_id = db.Column(db.Integer, db.ForeignKey('configuracao.id'), nullable=True)
+
+    def get_id(self):
+        return f"u_{self.id}"
 
 class Cliente(UserMixin, db.Model):
     """Modelo para os clientes da barbearia"""
@@ -96,6 +102,9 @@ class Cliente(UserMixin, db.Model):
     fidelidade_pontos = db.Column(db.Integer, default=0)
     barbearia_id = db.Column(db.Integer, db.ForeignKey('configuracao.id'), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
+    
+    def get_id(self):
+        return f"c_{self.id}"
     
     agendamentos = db.relationship('Agendamento', backref='cliente', lazy=True, cascade="all, delete-orphan")
     # Garante que um telefone seja único dentro de uma mesma barbearia
@@ -180,7 +189,6 @@ def login_global():
         password = request.form.get('password')
         admin = Administrador.query.filter_by(username=username).first()
         if admin and check_password_hash(admin.password, password):
-            admin.id = f"a_{admin.id}"
             login_user(admin)
             return redirect(url_for('index_root'))
         else:
@@ -381,7 +389,6 @@ def login_cliente(slug):
         telefone = request.form.get('telefone')
         cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
         if cliente:
-            cliente.id = f"c_{cliente.id}"
             login_user(cliente)
             return redirect(url_for('painel_cliente', slug=slug))
         else:
@@ -398,7 +405,6 @@ def login_admin(slug):
         user = Usuario.query.filter_by(username=username, barbearia_id=config.id, is_admin=True).first()
         
         if user and check_password_hash(user.password, password):
-            user.id = f"u_{user.id}"
             login_user(user)
             return redirect(url_for('index', slug=slug))
         else:
