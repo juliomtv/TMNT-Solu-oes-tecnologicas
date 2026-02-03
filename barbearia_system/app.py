@@ -65,13 +65,22 @@ class Configuracao(db.Model):
     clientes = db.relationship('Cliente', backref='barbearia', lazy=True, cascade="all, delete-orphan")
     servicos = db.relationship('Servico', backref='barbearia', lazy=True, cascade="all, delete-orphan")
 
+class Administrador(UserMixin, db.Model):
+    """Modelo para os administradores/desenvolvedores da empresa (Super Admins)"""
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    
+    @property
+    def is_superadmin(self):
+        return True
+
 class Usuario(UserMixin, db.Model):
-    """Modelo para usuários do sistema (Barbeiros, Admins da Unidade e Super Admin)"""
+    """Modelo para usuários do sistema (Barbeiros e Admins da Unidade)"""
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     is_admin = db.Column(db.Boolean, default=True) # Pode gerenciar a unidade
-    is_superadmin = db.Column(db.Boolean, default=False) # Pode gerenciar todas as barbearias
     barbearia_id = db.Column(db.Integer, db.ForeignKey('configuracao.id'), nullable=True)
 
 class Cliente(UserMixin, db.Model):
@@ -129,17 +138,15 @@ class Fila(db.Model):
 def load_user(user_id):
     """Carrega o usuário ou cliente logado a partir do ID na sessão"""
     user_id_str = str(user_id)
-    # Identifica se é usuário (admin/barbeiro) ou cliente pelo prefixo
-    if user_id_str.startswith('u_'):
+    # Identifica se é administrador (dev), usuário (admin/barbeiro) ou cliente pelo prefixo
+    if user_id_str.startswith('a_'):
+        return Administrador.query.get(int(user_id_str[2:]))
+    elif user_id_str.startswith('u_'):
         return Usuario.query.get(int(user_id_str[2:]))
     elif user_id_str.startswith('c_'):
         return Cliente.query.get(int(user_id_str[2:]))
     
-    # Fallback para IDs antigos sem prefixo
-    user = Usuario.query.get(int(user_id))
-    if user:
-        return user
-    return Cliente.query.get(int(user_id))
+    return None
 
 # Inicialização do Banco de Dados e criação do Super Admin padrão
 with app.app_context():
@@ -148,13 +155,11 @@ with app.app_context():
     
     db.create_all()
     
-    # Cria o usuário desenvolvedor/superadmin se não existir
-    if not Usuario.query.filter_by(username='admin').first():
-        admin = Usuario(
+    # Cria o administrador desenvolvedor se não existir
+    if not Administrador.query.filter_by(username='admin').first():
+        admin = Administrador(
             username='admin',
-            password=generate_password_hash('Admin123', method='pbkdf2:sha256'),
-            is_admin=True,
-            is_superadmin=True
+            password=generate_password_hash('Admin123', method='pbkdf2:sha256')
         )
         db.session.add(admin)
         db.session.commit()
@@ -163,27 +168,27 @@ with app.app_context():
 
 @app.route('/login_master', methods=['GET', 'POST'])
 def login_global():
-    """Login exclusivo para o Super Admin (Desenvolvedor)"""
-    if current_user.is_authenticated and getattr(current_user, 'is_superadmin', False):
+    """Login exclusivo para o Administrador (Desenvolvedor)"""
+    if current_user.is_authenticated and hasattr(current_user, 'is_superadmin') and current_user.is_superadmin:
         return redirect(url_for('index_root'))
         
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        user = Usuario.query.filter_by(username=username, is_superadmin=True).first()
-        if user and check_password_hash(user.password, password):
-            user.id = f"u_{user.id}"
-            login_user(user)
+        admin = Administrador.query.filter_by(username=username).first()
+        if admin and check_password_hash(admin.password, password):
+            admin.id = f"a_{admin.id}"
+            login_user(admin)
             return redirect(url_for('index_root'))
         else:
-            flash('Acesso negado. Apenas o desenvolvedor pode acessar esta área.', 'danger')
+            flash('Acesso negado. Apenas o administrador pode acessar esta área.', 'danger')
     return render_template('login_global.html')
 
 @app.route('/')
 @login_required
 def index_root():
     """Painel principal do Super Admin para gerenciar barbearias"""
-    if not getattr(current_user, 'is_superadmin', False):
+    if not (hasattr(current_user, 'is_superadmin') and current_user.is_superadmin):
         flash('Acesso restrito ao Super Admin.', 'danger')
         logout_user()
         return redirect(url_for('login_global'))
@@ -194,7 +199,7 @@ def index_root():
 @login_required
 def cadastrar_barbearia():
     """Rota para o Super Admin cadastrar uma nova unidade de barbearia"""
-    if not getattr(current_user, 'is_superadmin', False):
+    if not (hasattr(current_user, 'is_superadmin') and current_user.is_superadmin):
         flash('Apenas o Super Admin pode cadastrar novas barbearias.', 'danger')
         return redirect(url_for('index_root'))
         
@@ -249,7 +254,7 @@ def cadastrar_barbearia():
 @login_required
 def editar_barbearia(id):
     """Permite ao Super Admin editar dados básicos e credenciais da barbearia"""
-    if not getattr(current_user, 'is_superadmin', False):
+    if not (hasattr(current_user, 'is_superadmin') and current_user.is_superadmin):
         flash('Acesso restrito ao Super Admin.', 'danger')
         return redirect(url_for('login_global'))
     
@@ -294,7 +299,7 @@ def editar_barbearia(id):
 @login_required
 def excluir_barbearia(id):
     """Exclui uma barbearia e todos os seus dados vinculados"""
-    if not getattr(current_user, 'is_superadmin', False):
+    if not (hasattr(current_user, 'is_superadmin') and current_user.is_superadmin):
         flash('Acesso restrito ao Super Admin.', 'danger')
         return redirect(url_for('login_global'))
     
@@ -304,6 +309,39 @@ def excluir_barbearia(id):
     flash(f'Barbearia {barbearia.nome_barbearia} excluída com sucesso.', 'success')
     return redirect(url_for('index_root'))
 
+@app.route('/cadastrar_admin', methods=['POST'])
+@login_required
+def cadastrar_admin():
+    """Rota para o Administrador cadastrar novos administradores do sistema"""
+    if not (hasattr(current_user, 'is_superadmin') and current_user.is_superadmin):
+        flash('Acesso restrito.', 'danger')
+        return redirect(url_for('login_global'))
+    
+    username = request.form.get('username_admin')
+    password = request.form.get('password_admin')
+    
+    if not username or not password:
+        flash('Preencha todos os campos.', 'danger')
+        return redirect(url_for('cadastrar_barbearia'))
+        
+    valida, msg = validar_senha(password)
+    if not valida:
+        flash(msg, 'danger')
+        return redirect(url_for('cadastrar_barbearia'))
+
+    if Administrador.query.filter_by(username=username).first():
+        flash('Este nome de usuário já está em uso.', 'danger')
+    else:
+        novo = Administrador(
+            username=username,
+            password=generate_password_hash(password, method='pbkdf2:sha256')
+        )
+        db.session.add(novo)
+        db.session.commit()
+        flash('Novo administrador cadastrado com sucesso!', 'success')
+        
+    return redirect(url_for('cadastrar_barbearia'))
+
 # --- ROTAS DA BARBEARIA (CLIENTE E ADMIN LOCAL) ---
 
 @app.route('/<slug>')
@@ -311,7 +349,9 @@ def index(slug):
     """Página inicial administrativa de uma barbearia específica"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
     # Se não estiver logado como admin daquela barbearia, vai para a home do cliente
-    if not current_user.is_authenticated or not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not current_user.is_authenticated or not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     
     # Mostra os agendamentos do dia para o admin
@@ -397,10 +437,7 @@ def agendamento_confirmacao(slug, agendamento_id):
 def api_agendamento_status(slug, agendamento_id):
     """API para o frontend verificar se o status do agendamento mudou (AJAX)"""
     agendamento = Agendamento.query.get_or_404(agendamento_id)
-    return jsonify({
-        'status': agendamento.status,
-        'data_hora': agendamento.data_hora.strftime('%d/%m/%Y %H:%M')
-    })
+    return jsonify({'status': agendamento.status})
 
 @app.route('/<slug>/agendar', methods=['GET', 'POST'])
 def agendar_cliente(slug):
@@ -424,7 +461,6 @@ def agendar_cliente(slug):
             db.session.add(cliente)
             db.session.flush()
         
-        # Cria o agendamento
         novo_agendamento = Agendamento(
             data_hora=data_hora,
             cliente_id=cliente.id,
@@ -434,16 +470,19 @@ def agendar_cliente(slug):
         db.session.add(novo_agendamento)
         db.session.commit()
         
+        flash('Agendamento realizado com sucesso!', 'success')
         return redirect(url_for('agendamento_confirmacao', slug=slug, agendamento_id=novo_agendamento.id))
         
     return render_template('cliente_agendar.html', config=config, servicos=servicos)
 
-@app.route('/<slug>/admin/agendamentos')
+@app.route('/<slug>/agendamentos')
 @login_required
 def listar_agendamentos(slug):
     """Lista todos os agendamentos para o admin da barbearia"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     
     agendamentos = Agendamento.query.filter_by(barbearia_id=config.id).order_by(Agendamento.data_hora.desc()).all()
@@ -454,14 +493,16 @@ def listar_agendamentos(slug):
 def novo_agendamento(slug):
     """Admin criando agendamento manualmente"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     
     if request.method == 'POST':
         cliente_id = request.form.get('cliente_id')
         servico_id = request.form.get('servico_id')
-        barbeiro_id = request.form.get('barbeiro_id')
         data_hora_str = request.form.get('data_hora')
+        barbeiro_id = request.form.get('barbeiro_id')
         
         data_hora = datetime.strptime(data_hora_str, '%Y-%m-%dT%H:%M')
         
@@ -475,29 +516,17 @@ def novo_agendamento(slug):
         )
         db.session.add(novo)
         db.session.commit()
-        flash('Agendamento realizado com sucesso!', 'success')
+        flash('Agendamento criado com sucesso!', 'success')
         return redirect(url_for('listar_agendamentos', slug=slug))
         
-    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     clientes = Cliente.query.filter_by(barbearia_id=config.id).all()
-    return render_template('agendamento_form.html', config=config, servicos=servicos, clientes=clientes)
-
-@app.route('/<slug>/agendamento/confirmar/<int:id>')
-@login_required
-def confirmar_agendamento(slug, id):
-    """Admin confirmando um agendamento pendente"""
-    config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
-    agendamento.status = 'Confirmado'
-    agendamento.barbeiro_id = current_user.id
-    db.session.commit()
-    flash('Agendamento confirmado!', 'success')
-    return redirect(request.referrer or url_for('index', slug=slug))
+    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
+    return render_template('agendamento_form.html', config=config, clientes=clientes, servicos=servicos)
 
 @app.route('/<slug>/agendamento/concluir/<int:id>')
 @login_required
 def concluir_agendamento(slug, id):
-    """Admin marcando agendamento como finalizado e pontuando fidelidade"""
+    """Marca agendamento como concluído e soma pontos de fidelidade"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
     agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
     if agendamento.status != 'Concluído':
@@ -547,7 +576,9 @@ def cancelar_agendamento_cliente(slug, id):
 def alterar_data_agendamento(slug, id):
     """Admin alterando a data/hora de um agendamento"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
         
     agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
@@ -563,7 +594,9 @@ def alterar_data_agendamento(slug, id):
 def listar_clientes(slug):
     """Lista todos os clientes cadastrados na barbearia"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     clientes = Cliente.query.filter_by(barbearia_id=config.id).all()
     return render_template('clientes.html', clientes=clientes, config=config)
@@ -573,7 +606,9 @@ def listar_clientes(slug):
 def novo_cliente(slug):
     """Admin cadastrando cliente manualmente"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     
     if request.method == 'POST':
@@ -597,7 +632,9 @@ def novo_cliente(slug):
 def configuracoes(slug):
     """Painel de configurações da barbearia (horários, fidelidade, barbeiros, serviços)"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     if request.method == 'POST':
@@ -618,7 +655,9 @@ def configuracoes(slug):
 def novo_barbeiro(slug):
     """Adiciona um novo barbeiro (usuário admin) à unidade"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     
     username = title_case(request.form.get('username'))
@@ -646,7 +685,9 @@ def novo_barbeiro(slug):
 def editar_barbeiro(slug, id):
     """Edita dados de um barbeiro existente"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     
     barbeiro = Usuario.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
@@ -669,7 +710,9 @@ def editar_barbeiro(slug, id):
 def excluir_barbeiro(slug, id):
     """Remove um barbeiro da unidade"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     
     if id == current_user.id:
@@ -687,7 +730,9 @@ def excluir_barbeiro(slug, id):
 def novo_servico(slug):
     """Adiciona um novo serviço (ex: Sobrancelha)"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     
     nome = request.form.get('nome')
@@ -704,7 +749,9 @@ def novo_servico(slug):
 def editar_servico(slug, id):
     """Edita preço ou nome de um serviço"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     
     servico = Servico.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
@@ -720,7 +767,9 @@ def editar_servico(slug, id):
 def excluir_servico(slug, id):
     """Remove um serviço"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
     
     servico = Servico.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
@@ -734,7 +783,9 @@ def excluir_servico(slug, id):
 def excluir_cliente(slug, id):
     """Admin excluindo um cliente"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
         
     cliente = Cliente.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
@@ -743,10 +794,12 @@ def excluir_cliente(slug, id):
     flash('Cliente excluído com sucesso.', 'success')
     return redirect(url_for('listar_clientes', slug=slug))
 
-@app.route('/<slug>/notificacoes/verificar')
-def verificar_notificacoes(slug):
+@app.route('/<slug>/api/notificacoes')
+def api_notificacoes(slug):
     """Placeholder para verificação de notificações"""
-    return jsonify({'notificar': False})# --- FILA DE ESPERA (ORDEM DE CHEGADA) ---
+    return jsonify({'notificar': False})
+
+# --- FILA DE ESPERA (ORDEM DE CHEGADA) ---
 
 @app.route('/<slug>/fila/<int:id>')
 def fila_acompanhar(slug, id):
@@ -808,7 +861,9 @@ def entrar_fila(slug):
 def fila_painel(slug):
     """Painel administrativo para gerenciar a fila (chamar, atender, finalizar)"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
+    is_super = hasattr(current_user, 'is_superadmin') and current_user.is_superadmin
+    is_local_admin = getattr(current_user, 'is_admin', False)
+    if not (is_super or (is_local_admin and current_user.barbearia_id == config.id)):
         return redirect(url_for('home_cliente', slug=slug))
         
     fila = Fila.query.filter_by(barbearia_id=config.id).filter(Fila.status.in_(['aguardando', 'chamado', 'atendendo'])).order_by(Fila.posicao).all()
