@@ -47,19 +47,17 @@
                         </div>
                         {% endif %}
 
-                        {% if not barbearia %}
                         <hr class="my-4">
                         <h5 class="text-muted mb-3">Acesso Administrativo</h5>
                         <div class="mb-3">
                             <label class="form-label">Usuário Admin</label>
-                            <input type="text" name="username" class="form-control" required placeholder="Ex: admin">
+                            <input type="text" name="username" class="form-control" {% if not barbearia %}required{% endif %} placeholder="Ex: admin" value="{{ admin_usuario.username if admin_usuario else '' }}">
                         </div>
                         <div class="mb-4">
-                            <label class="form-label">Senha Admin</label>
-                            <input type="password" name="password" class="form-control" required>
+                            <label class="form-label">{% if barbearia %}Nova Senha (deixe em branco para manter){% else %}Senha Admin{% endif %}</label>
+                            <input type="password" name="password" class="form-control" {% if not barbearia %}required{% endif %}>
                             <small class="text-muted">Mínimo 6 dígitos, uma letra maiúscula e um número.</small>
                         </div>
-                        {% endif %}
 
                         <button type="submit" class="btn btn-primary w-100 btn-lg">
                             {% if barbearia %}Salvar Alterações{% else %}Criar Barbearia{% endif %}

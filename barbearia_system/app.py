@@ -29,6 +29,12 @@ def slugify(text):
     text = re.sub(r'[^\w\s-]', '', text).strip().lower()
     return re.sub(r'[-\s]+', '-', text)
 
+def title_case(text):
+    """Converte um texto para Title Case (ex: barbearia do joao -> Barbearia Do Joao)"""
+    if not text:
+        return text
+    return ' '.join(word.capitalize() for word in text.split())
+
 def validar_senha(password):
     """Valida se a senha atende aos requisitos mínimos de segurança"""
     if len(password) < 6:
@@ -193,9 +199,9 @@ def cadastrar_barbearia():
         return redirect(url_for('index_root'))
         
     if request.method == 'POST':
-        nome = request.form.get('nome')
-        slug = slugify(nome)
-        username = request.form.get('username')
+        nome = title_case(request.form.get('nome'))
+        slug = slugify(request.form.get('nome'))
+        username = title_case(request.form.get('username'))
         password = request.form.get('password')
         
         valida, msg = validar_senha(password)
@@ -238,16 +244,50 @@ def cadastrar_barbearia():
     
     return render_template('cadastrar_barbearia.html')
 
-@app.route('/editar_barbearia/<int:id>')
+@app.route('/editar_barbearia/<int:id>', methods=['GET', 'POST'])
 @login_required
 def editar_barbearia(id):
-    """Redireciona para as configurações da barbearia para edição"""
+    """Permite ao Super Admin editar dados básicos e credenciais da barbearia"""
     if not getattr(current_user, 'is_superadmin', False):
         flash('Acesso restrito ao Super Admin.', 'danger')
         return redirect(url_for('login_global'))
     
     barbearia = Configuracao.query.get_or_404(id)
-    return redirect(url_for('configuracoes', slug=barbearia.slug))
+    # Busca o usuário admin principal desta barbearia
+    admin_usuario = Usuario.query.filter_by(barbearia_id=barbearia.id, is_admin=True).first()
+    
+    if request.method == 'POST':
+        nome = title_case(request.form.get('nome'))
+        username = title_case(request.form.get('username'))
+        password = request.form.get('password')
+        ativo = 'ativo' in request.form
+        
+        # Atualiza dados da barbearia
+        barbearia.nome_barbearia = nome
+        barbearia.ativo = ativo
+        
+        # Atualiza credenciais do admin se fornecidas
+        if admin_usuario:
+            if username:
+                # Verifica se o username já existe para outro usuário
+                existente = Usuario.query.filter_by(username=username).first()
+                if existente and existente.id != admin_usuario.id:
+                    flash('Este nome de usuário já está em uso.', 'danger')
+                    return render_template('cadastrar_barbearia.html', barbearia=barbearia, admin_usuario=admin_usuario)
+                admin_usuario.username = username
+            
+            if password:
+                valida, msg = validar_senha(password)
+                if not valida:
+                    flash(msg, 'danger')
+                    return render_template('cadastrar_barbearia.html', barbearia=barbearia, admin_usuario=admin_usuario)
+                admin_usuario.password = generate_password_hash(password, method='pbkdf2:sha256')
+        
+        db.session.commit()
+        flash('Barbearia atualizada com sucesso!', 'success')
+        return redirect(url_for('index_root'))
+        
+    return render_template('cadastrar_barbearia.html', barbearia=barbearia, admin_usuario=admin_usuario)
 
 @app.route('/excluir_barbearia/<int:id>')
 @login_required
@@ -363,12 +403,12 @@ def api_agendamento_status(slug, agendamento_id):
 
 @app.route('/<slug>/agendar', methods=['GET', 'POST'])
 def agendar_cliente(slug):
-    """Fluxo de agendamento pelo cliente"""
+    """Cliente realizando um agendamento online"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     
     if request.method == 'POST':
-        nome = request.form.get('nome')
+        nome = title_case(request.form.get('nome'))
         telefone = request.form.get('telefone')
         servico_id = request.form.get('servico_id')
         data_hora_str = request.form.get('data_hora')
@@ -536,7 +576,7 @@ def novo_cliente(slug):
         return redirect(url_for('home_cliente', slug=slug))
     
     if request.method == 'POST':
-        nome = request.form.get('nome')
+        nome = title_case(request.form.get('nome'))
         telefone = request.form.get('telefone')
         email = request.form.get('email')
         
@@ -560,7 +600,7 @@ def configuracoes(slug):
         return redirect(url_for('home_cliente', slug=slug))
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     if request.method == 'POST':
-        config.nome_barbearia = request.form.get('nome_barbearia')
+        config.nome_barbearia = title_case(request.form.get('nome_barbearia'))
         config.horario_abertura = request.form.get('horario_abertura')
         config.horario_fechamento = request.form.get('horario_fechamento')
         config.intervalo_minutos = int(request.form.get('intervalo_minutos', 30))
@@ -580,7 +620,7 @@ def novo_barbeiro(slug):
     if not getattr(current_user, 'is_admin', False) or (not current_user.is_superadmin and current_user.barbearia_id != config.id):
         return redirect(url_for('home_cliente', slug=slug))
     
-    username = request.form.get('username')
+    username = title_case(request.form.get('username'))
     password = request.form.get('password')
     
     valida, msg = validar_senha(password)
@@ -611,7 +651,7 @@ def editar_barbeiro(slug, id):
         return redirect(url_for('home_cliente', slug=slug))
     
     barbeiro = Usuario.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
-    novo_username = request.form.get('username')
+    novo_username = title_case(request.form.get('username'))
     nova_senha = request.form.get('password')
     
     if novo_username:
@@ -750,7 +790,7 @@ def entrar_fila(slug):
     """Cliente entrando na fila digital"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
     if request.method == 'POST':
-        nome = request.form.get('nome')
+        nome = title_case(request.form.get('nome'))
         whatsapp = request.form.get('whatsapp')
         servico_id = request.form.get('servico_id')
         
