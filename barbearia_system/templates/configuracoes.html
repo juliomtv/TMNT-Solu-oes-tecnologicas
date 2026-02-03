@@ -206,7 +206,7 @@ function copyLink() {
 
 function editarServico(id, nome, preco) {
     document.getElementById('tituloModalServico').innerText = 'Editar Serviço';
-    document.getElementById('formServico').action = "{{ url_for('configuracoes', slug=config.slug) }}".replace('configuracoes', 'servico/editar/' + id);
+    document.getElementById('formServico').action = "{{ url_for('configuracoes', slug=config.slug) }}".replace('/configuracoes', '/servico/editar/' + id);
     document.getElementById('servicoNome').value = nome;
     document.getElementById('servicoPreco').value = preco;
     new bootstrap.Modal(document.getElementById('modalServico')).show();
@@ -214,7 +214,7 @@ function editarServico(id, nome, preco) {
 
 function editarBarbeiro(id, username) {
     document.getElementById('tituloModalBarbeiro').innerText = 'Editar Barbeiro';
-    document.getElementById('formBarbeiro').action = "{{ url_for('configuracoes', slug=config.slug) }}".replace('configuracoes', 'barbeiro/editar/' + id);
+    document.getElementById('formBarbeiro').action = "{{ url_for('configuracoes', slug=config.slug) }}".replace('/configuracoes', '/barbeiro/editar/' + id);
     document.getElementById('barbeiroUsername').value = username;
     document.getElementById('barbeiroPassword').required = false;
     document.getElementById('labelSenha').innerText = 'Nova Senha (deixe em branco para manter)';

@@ -323,10 +323,13 @@ def login_admin(slug):
     return render_template('login.html', config=config)
 
 @app.route('/logout')
+@app.route('/<slug>/logout')
 @login_required
-def logout():
+def logout(slug=None):
     """Faz logout de qualquer tipo de usuário"""
     logout_user()
+    if slug:
+        return redirect(url_for('home_cliente', slug=slug))
     return redirect(url_for('index_root'))
 
 @app.route('/<slug>/painel')
@@ -349,8 +352,8 @@ def agendamento_confirmacao(slug, agendamento_id):
     agendamento = Agendamento.query.get_or_404(agendamento_id)
     return render_template('cliente_agendamento_status.html', agendamento=agendamento, config=config)
 
-@app.route('/api/agendamento/status/<int:agendamento_id>')
-def api_agendamento_status(agendamento_id):
+@app.route('/<slug>/api/agendamento/status/<int:agendamento_id>')
+def api_agendamento_status(slug, agendamento_id):
     """API para o frontend verificar se o status do agendamento mudou (AJAX)"""
     agendamento = Agendamento.query.get_or_404(agendamento_id)
     return jsonify({
@@ -414,8 +417,25 @@ def novo_agendamento(slug):
         return redirect(url_for('home_cliente', slug=slug))
     
     if request.method == 'POST':
-        # Lógica similar ao agendamento do cliente, mas com mais opções
-        pass
+        cliente_id = request.form.get('cliente_id')
+        servico_id = request.form.get('servico_id')
+        barbeiro_id = request.form.get('barbeiro_id')
+        data_hora_str = request.form.get('data_hora')
+        
+        data_hora = datetime.strptime(data_hora_str, '%Y-%m-%dT%H:%M')
+        
+        novo = Agendamento(
+            data_hora=data_hora,
+            cliente_id=cliente_id,
+            servico_id=servico_id,
+            barbearia_id=config.id,
+            barbeiro_id=barbeiro_id if barbeiro_id else None,
+            status='Confirmado'
+        )
+        db.session.add(novo)
+        db.session.commit()
+        flash('Agendamento realizado com sucesso!', 'success')
+        return redirect(url_for('listar_agendamentos', slug=slug))
         
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     clientes = Cliente.query.filter_by(barbearia_id=config.id).all()
@@ -490,7 +510,7 @@ def alterar_data_agendamento(slug, id):
         return redirect(url_for('home_cliente', slug=slug))
         
     agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
-    nova_data = request.form.get('nova_data')
+    nova_data = request.form.get('nova_data_hora')
     if nova_data:
         agendamento.data_hora = datetime.strptime(nova_data, '%Y-%m-%dT%H:%M')
         db.session.commit()
@@ -696,12 +716,34 @@ def verificar_notificacoes(slug):
     """Placeholder para verificação de notificações"""
     return jsonify({'notificar': False})# --- FILA DE ESPERA (ORDEM DE CHEGADA) ---
 
-@app.route('/<slug>/fila')
-def fila_acompanhar(slug):
-    """Página pública para clientes acompanharem a fila em tempo real"""
+@app.route('/<slug>/fila/<int:id>')
+def fila_acompanhar(slug, id):
+    """Página pública para um cliente específico acompanhar sua posição na fila"""
     config = Configuracao.query.filter_by(slug=slug).first_or_404()
-    fila = Fila.query.filter_by(barbearia_id=config.id).filter(Fila.status.in_(['aguardando', 'chamado', 'atendendo'])).order_by(Fila.posicao).all()
-    return render_template('fila_acompanhar.html', fila=fila, config=config)
+    item = Fila.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    
+    # Calcula quantas pessoas estão na frente (status aguardando e posição menor)
+    faltam = Fila.query.filter_by(barbearia_id=config.id, status='aguardando').filter(Fila.posicao < item.posicao).count()
+    
+    # Tempo estimado (ex: 20 min por pessoa na frente)
+    tempo_estimado = faltam * 20
+    
+    return render_template('fila_acompanhar.html', item=item, config=config, faltam=faltam, tempo_estimado=tempo_estimado)
+
+@app.route('/api/<slug>/fila/status/<int:id>')
+def api_fila_status(slug, id):
+    """API para o frontend verificar o status da fila em tempo real"""
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    item = Fila.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    
+    faltam = Fila.query.filter_by(barbearia_id=config.id, status='aguardando').filter(Fila.posicao < item.posicao).count()
+    
+    return jsonify({
+        'posicao': item.posicao,
+        'status': item.status,
+        'faltam': faltam,
+        'tempo_estimado': faltam * 20
+    })
 
 @app.route('/<slug>/fila/entrar', methods=['GET', 'POST'])
 def entrar_fila(slug):
@@ -724,7 +766,7 @@ def entrar_fila(slug):
         db.session.add(nova_entrada)
         db.session.commit()
         flash('Você entrou na fila! Acompanhe sua posição.', 'success')
-        return redirect(url_for('fila_acompanhar', slug=slug))
+        return redirect(url_for('fila_acompanhar', slug=slug, id=nova_entrada.id))
         
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     return render_template('fila_entrar.html', servicos=servicos, config=config)

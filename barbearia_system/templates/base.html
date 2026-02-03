@@ -45,11 +45,11 @@
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('fila_painel', slug=config.slug) }}">Fila Digital</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('configuracoes', slug=config.slug) }}">Configurações</a></li>
                             {% endif %}
-                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') }}">Sair</a></li>
+                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout', slug=config.slug) if config else url_for('logout') }}">Sair</a></li>
                         {% else %}
                             <!-- Links para o Cliente Logado -->
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('cliente_painel', slug=config.slug) }}">Meus Agendamentos</a></li>
-                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') }}">Sair</a></li>
+                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout', slug=config.slug) if config else url_for('logout') }}">Sair</a></li>
                         {% endif %}
                     {% else %}
                         <!-- Links para Visitantes (Não Logados) -->

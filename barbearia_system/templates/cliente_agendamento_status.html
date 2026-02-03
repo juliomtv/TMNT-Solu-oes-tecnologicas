@@ -84,7 +84,7 @@
         if (currentStatus !== 'Pendente') return;
 
         // Chama a API interna para checar o status no banco de dados
-        fetch(`/api/agendamento/status/${agendamentoId}`)
+        fetch(`/{{ config.slug }}/api/agendamento/status/${agendamentoId}`)
             .then(response => response.json())
             .then(data => {
                 if (data.status !== currentStatus) {
