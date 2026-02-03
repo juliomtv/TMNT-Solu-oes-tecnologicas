@@ -212,13 +212,14 @@ def cadastrar_barbearia():
         if Configuracao.query.filter_by(slug=slug).first():
             slug = f"{slug}-{datetime.now().strftime('%H%M%S')}"
         
-        if Usuario.query.filter_by(username=username).first():
-            flash('Este nome de usuário já está em uso.', 'danger')
-            return redirect(url_for('cadastrar_barbearia'))
-            
         nova_barbearia = Configuracao(nome_barbearia=nome, slug=slug)
         db.session.add(nova_barbearia)
         db.session.flush()
+
+        if Usuario.query.filter_by(username=username, barbearia_id=nova_barbearia.id).first():
+            flash('Este nome de usuário já está em uso.', 'danger')
+            db.session.rollback()
+            return redirect(url_for('cadastrar_barbearia'))
         
         # Cria o admin da nova barbearia
         novo_admin = Usuario(
@@ -269,10 +270,10 @@ def editar_barbearia(id):
         # Atualiza credenciais do admin se fornecidas
         if admin_usuario:
             if username:
-                # Verifica se o username já existe para outro usuário
-                existente = Usuario.query.filter_by(username=username).first()
+                # Verifica se o username já existe para outro usuário nesta barbearia
+                existente = Usuario.query.filter_by(username=username, barbearia_id=barbearia.id).first()
                 if existente and existente.id != admin_usuario.id:
-                    flash('Este nome de usuário já está em uso.', 'danger')
+                    flash('Este nome de usuário já está em uso nesta barbearia.', 'danger')
                     return render_template('cadastrar_barbearia.html', barbearia=barbearia, admin_usuario=admin_usuario)
                 admin_usuario.username = username
             
@@ -628,8 +629,8 @@ def novo_barbeiro(slug):
         flash(msg, 'danger')
         return redirect(url_for('configuracoes', slug=slug))
 
-    if Usuario.query.filter_by(username=username).first():
-        flash('Este nome de usuário já está em uso.', 'danger')
+    if Usuario.query.filter_by(username=username, barbearia_id=config.id).first():
+        flash('Este nome de usuário já está em uso nesta barbearia.', 'danger')
     else:
         novo = Usuario(
             username=username,
@@ -652,12 +653,11 @@ def editar_barbeiro(slug, id):
     
     barbeiro = Usuario.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
     novo_username = title_case(request.form.get('username'))
-    nova_senha = request.form.get('password')
-    
-    if novo_username:
-        existente = Usuario.query.filter_by(username=novo_username).first()
+     if novo_username:
+        novo_username = title_case(novo_username)
+        existente = Usuario.query.filter_by(username=novo_username, barbearia_id=config.id).first()
         if existente and existente.id != barbeiro.id:
-            flash('Este nome de usuário já está em uso.', 'danger')
+            flash('Este nome de usuário já está em uso nesta barbearia.', 'danger')
             return redirect(url_for('configuracoes', slug=slug))
         barbeiro.username = novo_username
     
