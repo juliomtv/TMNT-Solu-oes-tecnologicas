@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import os
 import re
 import unicodedata
+import urllib
 
 # Inicialização da aplicação Flask
 app = Flask(__name__)
@@ -13,8 +14,17 @@ app = Flask(__name__)
 # Adiciona hasattr e getattr ao contexto do Jinja2 para uso nos templates
 app.jinja_env.globals.update(hasattr=hasattr, getattr=getattr)
 app.config['SECRET_KEY'] = 'chave-secreta-barbearia'
-# Configuração do Banco de Dados SQLite
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'barbearia.db')
+# Configuração do Banco de Dados SQL Server
+connection_string = (
+    "DRIVER={ODBC Driver 18 for SQL Server};"
+    "SERVER=100.66.160.34,1433;"
+    "DATABASE=master;"
+    "UID=APIuser;"
+    "PWD=TMNTdb;"
+    "TrustServerCertificate=yes;"
+)
+params = urllib.parse.quote_plus(connection_string)
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mssql+pyodbc:///?odbc_connect={params}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
