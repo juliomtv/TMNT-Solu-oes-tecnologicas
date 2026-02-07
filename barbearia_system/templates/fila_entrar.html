@@ -31,7 +31,7 @@
                     <label class="form-label">Escolha o Barbeiro (Opcional)</label>
                     <select name="barbeiro_id" class="form-select">
                         <option value="">Qualquer Barbeiro</option>
-                        {% for usuario in barbearia.usuarios %}
+                        {% for usuario in config.usuarios %}
                         <option value="{{ usuario.id }}">{{ usuario.username }}</option>
                         {% endfor %}
                     </select>
@@ -41,7 +41,7 @@
             </form>
             
             <div class="mt-3 text-center">
-                <a href="{{ url_for('home_cliente', slug=barbearia.slug) }}" class="text-decoration-none">Voltar ao Início</a>
+                <a href="{{ url_for('home_cliente', slug=config.slug) }}" class="text-decoration-none">Voltar ao Início</a>
             </div>
         </div>
     </div>
