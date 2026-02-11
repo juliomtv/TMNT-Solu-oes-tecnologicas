@@ -27,6 +27,15 @@ params = urllib.parse.quote_plus(connection_string)
 app.config['SQLALCHEMY_DATABASE_URI'] = f"mssql+pyodbc:///?odbc_connect={params}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Configurações de Pool para evitar erros de conexão (08S01/10054)
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+    "pool_timeout": 30,
+    "pool_size": 10,
+    "max_overflow": 5,
+}
+
 db = SQLAlchemy(app)
 
 # Configuração do Sistema de Login (Flask-Login)
@@ -458,6 +467,28 @@ def api_agendamento_status(slug, agendamento_id):
     agendamento = Agendamento.query.get_or_404(agendamento_id)
     return jsonify({'status': agendamento.status})
 
+@app.route('/api/<slug>/horarios_ocupados')
+def api_horarios_ocupados(slug):
+    """Retorna lista de horários já agendados para uma data específica"""
+    config = Configuracao.query.filter_by(slug=slug).first_or_404()
+    data_str = request.args.get('data')
+    if not data_str:
+        return jsonify([])
+    
+    try:
+        # Filtra agendamentos da barbearia na data selecionada que não foram cancelados
+        agendamentos = Agendamento.query.filter(
+            Agendamento.barbearia_id == config.id,
+            db.func.date(Agendamento.data_hora) == data_str,
+            Agendamento.status != 'Cancelado'
+        ).all()
+        
+        horarios = [a.data_hora.strftime('%H:%M') for a in agendamentos]
+        return jsonify(horarios)
+    except Exception as e:
+        print(f"Erro ao buscar horários ocupados: {e}")
+        return jsonify([]), 500
+
 @app.route('/<slug>/agendar', methods=['GET', 'POST'])
 def agendar_cliente(slug):
     """Cliente realizando um agendamento online"""
@@ -468,10 +499,12 @@ def agendar_cliente(slug):
         nome = title_case(request.form.get('nome'))
         telefone = request.form.get('telefone')
         servico_id = request.form.get('servico_id')
-        data_hora_str = request.form.get('data_hora')
+        data_str = request.form.get('data')
+        horario_str = request.form.get('horario')
+        barbeiro_id = request.form.get('barbeiro_id')
         
-        # Converte string da data para objeto datetime
-        data_hora = datetime.strptime(data_hora_str, '%Y-%m-%dT%H:%M')
+        # Converte string da data e horário para objeto datetime
+        data_hora = datetime.strptime(f"{data_str} {horario_str}", '%Y-%m-%d %H:%M')
         
         # Busca ou cria o cliente pelo telefone
         cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
@@ -484,7 +517,8 @@ def agendar_cliente(slug):
             data_hora=data_hora,
             cliente_id=cliente.id,
             servico_id=servico_id,
-            barbearia_id=config.id
+            barbearia_id=config.id,
+            barbeiro_id=barbeiro_id if barbeiro_id else None
         )
         db.session.add(novo_agendamento)
         db.session.commit()
@@ -860,17 +894,23 @@ def entrar_fila(slug):
         
         ultima_posicao = db.session.query(db.func.max(Fila.posicao)).filter_by(barbearia_id=config.id).scalar() or 0
         
-        nova_entrada = Fila(
-            cliente_nome=nome,
-            whatsapp=whatsapp,
-            servico_id=servico_id,
-            barbearia_id=config.id,
-            posicao=ultima_posicao + 1
-        )
-        db.session.add(nova_entrada)
-        db.session.commit()
-        flash('Você entrou na fila! Acompanhe sua posição.', 'success')
-        return redirect(url_for('fila_acompanhar', slug=slug, id=nova_entrada.id))
+        try:
+            nova_entrada = Fila(
+                cliente_nome=nome,
+                whatsapp=whatsapp,
+                servico_id=servico_id,
+                barbearia_id=config.id,
+                posicao=ultima_posicao + 1
+            )
+            db.session.add(nova_entrada)
+            db.session.commit()
+            flash('Você entrou na fila! Acompanhe sua posição.', 'success')
+            return redirect(url_for('fila_acompanhar', slug=slug, id=nova_entrada.id))
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao entrar na fila: {e}")
+            flash('Ocorreu um erro de conexão com o servidor. Por favor, tente novamente em alguns instantes.', 'danger')
+            return redirect(url_for('entrar_fila', slug=slug))
         
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     return render_template('fila_entrar.html', servicos=servicos, config=config)
