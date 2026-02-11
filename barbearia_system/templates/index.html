@@ -43,7 +43,7 @@
                         <td>
                             <!-- Ações administrativas para cada agendamento -->
                             {% if agendamento.status == 'Pendente' %}
-                            <a href="{{ url_for('confirmar_agendamento', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-primary">Confirmar</a>
+                            <a href="{{ url_for('concluir_agendamento', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-primary">Confirmar</a>
                             {% endif %}
                             
                             {% if agendamento.status == 'Confirmado' %}

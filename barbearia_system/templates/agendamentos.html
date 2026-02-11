@@ -40,7 +40,7 @@
                         </td>
                         <td>
                             {% if agendamento.status == 'Pendente' %}
-                            <a href="{{ url_for('confirmar_agendamento', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-success">Confirmar</a>
+                            <a href="{{ url_for('concluir_agendamento', slug=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-success">Confirmar</a>
                             <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal{{ agendamento.id }}">
                                 Alterar Data
                             </button>
