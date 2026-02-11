@@ -34,7 +34,7 @@
                         <td>{{ agendamento.servico.nome }}</td>
                         <td>R$ {{ "%.2f"|format(agendamento.servico.preco) }}</td>
                         <td>
-                            <span class="badge {% if agendamento.status == 'Pendente' %}bg-warning{% elif agendamento.status == 'Confirmado' %}bg-primary{% elif agendamento.status == 'Concluído' %}bg-success{% else %}bg-danger{% endif %}">
+                            <span class="badge {% if agendamento.status == 'Pendente' %}bg-warning{% elif agendamento.status in ['Confirmado', 'Concluído'] %}bg-success{% elif agendamento.status == 'Cancelado' %}bg-danger{% else %}bg-secondary{% endif %}">
                                 {{ agendamento.status }}
                             </span>
                         </td>

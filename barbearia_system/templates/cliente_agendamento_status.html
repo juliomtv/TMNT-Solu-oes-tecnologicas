@@ -11,8 +11,8 @@
                     {% if agendamento.status == 'Pendente' %}
                         <!-- Spinner de carregamento para agendamentos aguardando aprovação -->
                         <div class="spinner-border text-warning" style="width: 3rem; height: 3rem;" role="status"></div>
-                    {% elif agendamento.status == 'Confirmado' %}
-                        <!-- Ícone de Check para agendamentos confirmados -->
+                    {% elif agendamento.status in ['Confirmado', 'Concluído'] %}
+                        <!-- Ícone de Check para agendamentos confirmados ou concluídos -->
                         <div class="text-success">
                             <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
                                 <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
@@ -34,6 +34,8 @@
                         Aguardando Confirmação...
                     {% elif agendamento.status == 'Confirmado' %}
                         Agendamento Confirmado!
+                    {% elif agendamento.status == 'Concluído' %}
+                        Agendamento Concluído!
                     {% else %}
                         Agendamento {{ agendamento.status }}
                     {% endif %}
@@ -46,6 +48,8 @@
                         Mantenha esta página aberta, avisaremos assim que o barbeiro confirmar!
                     {% elif agendamento.status == 'Confirmado' %}
                         Tudo certo! Seu horário está garantido para <strong>{{ agendamento.data_hora.strftime('%d/%m/%Y às %H:%M') }}</strong>.
+                    {% elif agendamento.status == 'Concluído' %}
+                        Seu agendamento foi concluído com sucesso! Esperamos você na próxima.
                     {% else %}
                         Houve uma atualização no seu agendamento.
                     {% endif %}
