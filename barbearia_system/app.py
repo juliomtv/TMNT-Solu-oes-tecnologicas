@@ -166,13 +166,21 @@ def get_tenant():
     if request.path.startswith('/static'):
         return
     
-    host = request.host.split(':')[0]
-    base_domain = app.config.get('BASE_DOMAIN', 'localhost').split(':')[0]
+    host_parts = request.host.split('.')
+    base_domain_parts = app.config.get('BASE_DOMAIN', 'localhost:5000').split(':')[0].split('.')
     
-    # Se o host contém o base_domain e não é o próprio base_domain
-    if host.endswith(base_domain) and host != base_domain:
-        # Extrai a primeira parte do host como subdomínio
-        subdomain = host.split('.')[0]
+    # Lógica aprimorada para detectar subdomínio (tenant)
+    # Funciona para: barbearia.localhost:5000, barbearia.abc123.ngrok.io, etc.
+    subdomain = None
+    
+    # Se temos mais partes no host do que no domínio base, a primeira parte é o subdomínio
+    if len(host_parts) > len(base_domain_parts):
+        subdomain = host_parts[0]
+    # Caso especial para ngrok (geralmente nome.ngrok.io ou nome.sub.ngrok.io)
+    elif 'ngrok' in request.host and len(host_parts) >= 3:
+        subdomain = host_parts[0]
+        
+    if subdomain:
         # Força o recarregamento do tenant para evitar cache de sessões anteriores
         tenant = Configuracao.query.filter_by(slug=subdomain).populate_existing().first()
         if tenant:
