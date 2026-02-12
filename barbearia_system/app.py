@@ -80,9 +80,8 @@ class Configuracao(db.Model):
     fidelidade_ativa = db.Column(db.Boolean, default=True)
     fidelidade_cortes_necessarios = db.Column(db.Integer, default=10)
     notificacao_minutos = db.Column(db.Integer, default=15)
-    # Colunas de cores reativadas
-    cor_primaria = db.Column(db.String(7), default='#0d6efd')
-    cor_secundaria = db.Column(db.String(7), default='#212529')
+    # Colunas de cores removidas do modelo para evitar erros de SELECT automático no SQL Server
+    # A gestão de cores será feita via SQL puro para garantir estabilidade.
     ativo = db.Column(db.Boolean, default=True)
     
     usuarios = db.relationship('Usuario', backref='barbearia', lazy=True, cascade="all, delete-orphan")
@@ -174,17 +173,21 @@ def get_tenant():
     if host.endswith(base_domain) and host != base_domain:
         # Extrai a primeira parte do host como subdomínio
         subdomain = host.split('.')[0]
-        try:
-            tenant = Configuracao.query.filter_by(slug=subdomain).first()
-            if tenant:
-                g.tenant = tenant
-                # Garante valores padrão se as colunas existirem mas forem nulas
-                if not g.tenant.cor_primaria: g.tenant.cor_primaria = '#0d6efd'
-                if not g.tenant.cor_secundaria: g.tenant.cor_secundaria = '#212529'
-                return
-        except Exception:
-            # Se as colunas não existirem, silencia o erro para o site não cair
-            pass
+        tenant = Configuracao.query.filter_by(slug=subdomain).first()
+        if tenant:
+            g.tenant = tenant
+            # Lógica de cores via SQL puro para evitar erros de mapeamento
+            from sqlalchemy import text
+            g.tenant.cor_primaria = '#0d6efd'
+            g.tenant.cor_secundaria = '#212529'
+            try:
+                result = db.session.execute(text("SELECT cor_primaria, cor_secundaria FROM configuracao WHERE id = :id"), {"id": tenant.id}).fetchone()
+                if result:
+                    if result[0]: g.tenant.cor_primaria = result[0]
+                    if result[1]: g.tenant.cor_secundaria = result[1]
+            except Exception:
+                pass # Se as colunas não existirem, usa os padrões definidos acima
+            return
     
     g.tenant = None
 
@@ -455,15 +458,18 @@ def configuracoes():
         g.tenant.nome_barbearia = title_case(request.form.get('nome_barbearia'))
         g.tenant.horario_abertura = request.form.get('horario_abertura')
         g.tenant.horario_fechamento = request.form.get('horario_fechamento')
-        
-        # Tenta salvar as cores
-        try:
-            g.tenant.cor_primaria = request.form.get('cor_primaria')
-            g.tenant.cor_secundaria = request.form.get('cor_secundaria')
-        except Exception:
-            pass
-            
         db.session.commit()
+        
+        # Tenta salvar as cores via SQL puro
+        from sqlalchemy import text
+        try:
+            cor_p = request.form.get('cor_primaria')
+            cor_s = request.form.get('cor_secundaria')
+            db.session.execute(text("UPDATE configuracao SET cor_primaria = :p, cor_secundaria = :s WHERE id = :id"), 
+                             {"p": cor_p, "s": cor_s, "id": g.tenant.id})
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
         flash('Configurações atualizadas!', 'success')
     servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
     barbeiros = Usuario.query.filter_by(barbearia_id=g.tenant.id).all()
