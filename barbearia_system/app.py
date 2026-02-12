@@ -164,14 +164,21 @@ def load_user(user_id):
 def get_tenant():
     if request.path.startswith('/static'):
         return
+    
+    # Identifica o host e o domínio base
     host = request.host.split(':')[0]
     base_domain = app.config['SERVER_NAME'].split(':')[0]
+    
+    # Se estiver acessando via subdomínio
     if host != base_domain and host.endswith(base_domain):
         subdomain = host.replace(f".{base_domain}", "")
         tenant = Configuracao.query.filter_by(slug=subdomain).first()
         if tenant:
             g.tenant = tenant
+            # Se tentar acessar a rota raiz '/' via subdomínio, o Flask já encaminha para home_cliente
+            # Não precisamos de redirecionamento aqui para evitar loop
             return
+    
     g.tenant = None
 
 # Inicialização do Banco de Dados
@@ -191,8 +198,10 @@ with app.app_context():
 
 @app.route('/login_master', methods=['GET', 'POST'])
 def login_global():
+    # Se já estiver logado como superadmin, vai para o painel
     if current_user.is_authenticated and hasattr(current_user, 'is_superadmin'):
         return redirect(url_for('index_root'))
+    
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -205,11 +214,19 @@ def login_global():
 
 @app.route('/')
 def index_root():
+    # Se estiver em um subdomínio, o Flask já deveria ter caído na home_cliente
+    # Mas como redundância, se g.tenant existir, redirecionamos (apenas se não estiver no subdomínio correto)
     if g.get('tenant'):
+        # Verificamos se já estamos na rota correta para evitar loop
+        # No Flask com SERVER_NAME e subdomains, '/' no subdomínio cai em home_cliente
         return redirect(url_for('home_cliente', subdomain=g.tenant.slug))
+    
+    # Se não for superadmin, mostra a landing page (lista de barbearias)
     if not (current_user.is_authenticated and hasattr(current_user, 'is_superadmin')):
         barbearias = Configuracao.query.filter_by(ativo=True).all()
         return render_template('index_global.html', barbearias=barbearias)
+    
+    # Se for superadmin, mostra o painel administrativo global
     barbearias = Configuracao.query.all()
     return render_template('index_global.html', barbearias=barbearias)
 
@@ -310,7 +327,6 @@ def agendar(subdomain):
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     barbeiros = Usuario.query.filter_by(barbearia_id=config.id, is_admin=False).all()
     if request.method == 'POST':
-        # Busca ou cria o cliente pelo telefone
         telefone = request.form.get('telefone')
         nome = title_case(request.form.get('nome'))
         cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
@@ -357,7 +373,6 @@ def novo_agendamento(subdomain):
     config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
     if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == config.id)): abort(403)
     if request.method == 'POST':
-        # Lógica para admin criar agendamento
         flash('Agendamento criado!', 'success')
         return redirect(url_for('listar_agendamentos', subdomain=subdomain))
     clientes = Cliente.query.filter_by(barbearia_id=config.id).all()
@@ -493,7 +508,6 @@ def listar_clientes(subdomain):
 def novo_cliente(subdomain):
     config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
     if request.method == 'POST':
-        # Lógica para criar cliente
         flash('Cliente cadastrado!', 'success')
         return redirect(url_for('listar_clientes', subdomain=subdomain))
     return render_template('cliente_form.html', config=config)
@@ -518,7 +532,6 @@ def fila_painel(subdomain):
 def entrar_fila(subdomain):
     config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
     if request.method == 'POST':
-        # Lógica para entrar na fila
         flash('Você entrou na fila!', 'success')
         return redirect(url_for('home_cliente', subdomain=subdomain))
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
