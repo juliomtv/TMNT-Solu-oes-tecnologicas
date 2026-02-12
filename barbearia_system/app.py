@@ -80,6 +80,8 @@ class Configuracao(db.Model):
     fidelidade_ativa = db.Column(db.Boolean, default=True)
     fidelidade_cortes_necessarios = db.Column(db.Integer, default=10)
     notificacao_minutos = db.Column(db.Integer, default=15)
+    cor_primaria = db.Column(db.String(7), default='#0d6efd')
+    cor_secundaria = db.Column(db.String(7), default='#212529')
     ativo = db.Column(db.Boolean, default=True)
     
     usuarios = db.relationship('Usuario', backref='barbearia', lazy=True, cascade="all, delete-orphan")
@@ -434,6 +436,8 @@ def configuracoes():
         g.tenant.nome_barbearia = title_case(request.form.get('nome_barbearia'))
         g.tenant.horario_abertura = request.form.get('horario_abertura')
         g.tenant.horario_fechamento = request.form.get('horario_fechamento')
+        g.tenant.cor_primaria = request.form.get('cor_primaria')
+        g.tenant.cor_secundaria = request.form.get('cor_secundaria')
         db.session.commit()
         flash('Configurações atualizadas!', 'success')
     servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()

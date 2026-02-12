@@ -42,6 +42,19 @@
                     </div>
 
                     <hr>
+                    <h5 class="mb-3">Personalização Visual</h5>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Cor Primária (Botões e Destaques)</label>
+                            <input type="color" name="cor_primaria" class="form-control form-control-color w-100" value="{{ config.cor_primaria or '#0d6efd' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Cor Secundária (Barra de Navegação)</label>
+                            <input type="color" name="cor_secundaria" class="form-control form-control-color w-100" value="{{ config.cor_secundaria or '#212529' }}">
+                        </div>
+                    </div>
+
+                    <hr>
                     <h5 class="mb-3">Sistema de Fidelidade</h5>
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" name="fidelidade_ativa" id="fidelidade_ativa" {% if config.fidelidade_ativa %}checked{% endif %}>
