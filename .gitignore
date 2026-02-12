@@ -1,0 +1,6 @@
+barbearia_system/.env
+__pycache__/
+*.pyc
+instance/
+.vscode/
+venv/

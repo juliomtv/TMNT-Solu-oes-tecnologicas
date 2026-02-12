@@ -57,10 +57,10 @@
                     </div>
                     <div class="card-body p-4 text-center">
                         <h3 class="card-title mt-3">{{ b.nome_barbearia }}</h3>
-                        <p class="text-muted">Link: /{{ b.slug }}</p>
+                        <p class="text-muted">Link: {{ b.slug }}.{{ config['SERVER_NAME'] }}</p>
                         
                         <div class="d-grid gap-2">
-                            <a href="{{ url_for('home_cliente', slug=b.slug) }}" class="btn btn-outline-primary">Acessar Unidade</a>
+                            <a href="{{ url_for('home_cliente', subdomain=b.slug) }}" class="btn btn-outline-primary">Acessar Unidade</a>
                             <div class="btn-group mt-2">
                                 <a href="{{ url_for('editar_barbearia', id=b.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
                                 <a href="{{ url_for('excluir_barbearia', id=b.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir esta barbearia e todos os seus dados?')">Excluir</a>

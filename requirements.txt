@@ -75,3 +75,4 @@ gunicorn
 Flask-SQLAlchemy
 Flask-Login
 pyodbc
+python-dotenv
