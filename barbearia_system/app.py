@@ -180,11 +180,15 @@ def get_tenant():
             from sqlalchemy import text
             g.tenant.cor_primaria = '#0d6efd'
             g.tenant.cor_secundaria = '#212529'
+            g.tenant.cor_fundo = '#f8f9fa'
+            g.tenant.cor_texto = '#212529'
             try:
-                result = db.session.execute(text("SELECT cor_primaria, cor_secundaria FROM configuracao WHERE id = :id"), {"id": tenant.id}).fetchone()
+                result = db.session.execute(text("SELECT cor_primaria, cor_secundaria, cor_fundo, cor_texto FROM configuracao WHERE id = :id"), {"id": tenant.id}).fetchone()
                 if result:
                     if result[0]: g.tenant.cor_primaria = result[0]
                     if result[1]: g.tenant.cor_secundaria = result[1]
+                    if result[2]: g.tenant.cor_fundo = result[2]
+                    if result[3]: g.tenant.cor_texto = result[3]
             except Exception:
                 pass # Se as colunas não existirem, usa os padrões definidos acima
             return
@@ -204,8 +208,12 @@ def migrar_cores():
     commands = [
         "ALTER TABLE configuracao ADD cor_primaria VARCHAR(7) DEFAULT '#0d6efd'",
         "ALTER TABLE configuracao ADD cor_secundaria VARCHAR(7) DEFAULT '#212529'",
+        "ALTER TABLE configuracao ADD cor_fundo VARCHAR(7) DEFAULT '#f8f9fa'",
+        "ALTER TABLE configuracao ADD cor_texto VARCHAR(7) DEFAULT '#212529'",
         "UPDATE configuracao SET cor_primaria = '#0d6efd' WHERE cor_primaria IS NULL",
-        "UPDATE configuracao SET cor_secundaria = '#212529' WHERE cor_secundaria IS NULL"
+        "UPDATE configuracao SET cor_secundaria = '#212529' WHERE cor_secundaria IS NULL",
+        "UPDATE configuracao SET cor_fundo = '#f8f9fa' WHERE cor_fundo IS NULL",
+        "UPDATE configuracao SET cor_texto = '#212529' WHERE cor_texto IS NULL"
     ]
     for cmd in commands:
         try:
@@ -465,9 +473,13 @@ def configuracoes():
         try:
             cor_p = request.form.get('cor_primaria')
             cor_s = request.form.get('cor_secundaria')
-            db.session.execute(text("UPDATE configuracao SET cor_primaria = :p, cor_secundaria = :s WHERE id = :id"), 
-                             {"p": cor_p, "s": cor_s, "id": g.tenant.id})
+            cor_f = request.form.get('cor_fundo')
+            cor_t = request.form.get('cor_texto')
+            db.session.execute(text("UPDATE configuracao SET cor_primaria = :p, cor_secundaria = :s, cor_fundo = :f, cor_texto = :t WHERE id = :id"), 
+                             {"p": cor_p, "s": cor_s, "f": cor_f, "t": cor_t, "id": g.tenant.id})
             db.session.commit()
+            # Limpa o cache do objeto g.tenant para refletir as mudanças imediatamente
+            db.session.expire(g.tenant)
         except Exception:
             db.session.rollback()
         flash('Configurações atualizadas!', 'success')

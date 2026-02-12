@@ -11,16 +11,29 @@
         :root {
             --cor-primaria: {{ config.cor_primaria or '#0d6efd' }};
             --cor-secundaria: {{ config.cor_secundaria or '#212529' }};
+            --cor-fundo: {{ config.cor_fundo or '#f8f9fa' }};
+            --cor-texto: {{ config.cor_texto or '#212529' }};
         }
-        body { background-color: #f8f9fa; }
+        body { 
+            background-color: var(--cor-fundo) !important; 
+            color: var(--cor-texto) !important;
+        }
         .navbar { background-color: var(--cor-secundaria) !important; }
-        .card { border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card { 
+            border-radius: 15px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background-color: white;
+            color: #212529; /* Mantém texto dos cards escuro para legibilidade */
+        }
         .btn-primary { background-color: var(--cor-primaria) !important; border: none; }
         .btn-outline-primary { color: var(--cor-primaria) !important; border-color: var(--cor-primaria) !important; }
         .btn-outline-primary:hover { background-color: var(--cor-primaria) !important; color: white !important; }
         .text-primary { color: var(--cor-primaria) !important; }
         .bg-primary { background-color: var(--cor-primaria) !important; }
         .badge.bg-primary { background-color: var(--cor-primaria) !important; }
+        
+        /* Ajuste para textos secundários seguirem a cor do texto com opacidade */
+        .text-muted { color: var(--cor-texto) !important; opacity: 0.7; }
     </style>
 </head>
 <body>
