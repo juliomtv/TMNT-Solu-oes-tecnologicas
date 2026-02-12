@@ -25,8 +25,8 @@ app.config.update(
 )
 
 # Configurações de Domínio para Multi-tenant
-# O BASE_DOMAIN deve ser algo como 'meudominio.com.br' ou 'localhost:5000'
-app.config['BASE_DOMAIN'] = os.getenv('BASE_DOMAIN', 'localhost:5000')
+# O BASE_DOMAIN é lido do .env. Se não existir, tentamos usar o host da requisição.
+app.config['BASE_DOMAIN'] = os.getenv('BASE_DOMAIN', None)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'chave-secreta-barbearia')
 
 # Adiciona utilitários ao contexto do Jinja2 para uso nos templates
@@ -175,18 +175,30 @@ def get_tenant():
     if request.path.startswith('/static'):
         return
     
+    # Host atual da requisição (ex: barbearia.abc.ngrok-free.app)
     host = request.host.split(':')[0]
-    base_domain = app.config.get('BASE_DOMAIN', 'localhost:5000').split(':')[0]
     
+    # Se o BASE_DOMAIN não estiver no .env, tentamos deduzir
+    base_domain = app.config.get('BASE_DOMAIN')
+    if not base_domain:
+        # Se for ngrok, o base_domain são as últimas 3 partes (ex: abc.ngrok-free.app)
+        if 'ngrok' in host:
+            parts = host.split('.')
+            if len(parts) >= 3:
+                base_domain = '.'.join(parts[1:])
+        else:
+            # Padrão para local
+            base_domain = 'localhost'
+
     subdomain = None
     # Se o host termina com o domínio base e não é igual a ele
-    if host.endswith(base_domain) and host != base_domain:
+    if base_domain and host.endswith(base_domain) and host != base_domain:
         # O subdomínio é tudo o que vem antes do domínio base
         subdomain = host.replace(f".{base_domain}", "")
-    # Fallback para ngrok se não bater com o base_domain
+    # Caso especial para ngrok se a lógica acima falhar
     elif 'ngrok' in host:
         parts = host.split('.')
-        if len(parts) >= 3: # barbearia.abc.ngrok-free.app (4 partes)
+        if len(parts) >= 3:
             subdomain = parts[0]
         
     if subdomain:
