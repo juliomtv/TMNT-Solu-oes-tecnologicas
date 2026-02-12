@@ -173,16 +173,19 @@ def get_tenant():
     if host.endswith(base_domain) and host != base_domain:
         # Extrai a primeira parte do host como subdomínio
         subdomain = host.split('.')[0]
-        tenant = Configuracao.query.filter_by(slug=subdomain).first()
+        # Força o recarregamento do tenant para evitar cache de sessões anteriores
+        tenant = Configuracao.query.filter_by(slug=subdomain).populate_existing().first()
         if tenant:
             g.tenant = tenant
             # Lógica de cores via SQL puro para evitar erros de mapeamento
             from sqlalchemy import text
+            # Define padrões
             g.tenant.cor_primaria = '#0d6efd'
             g.tenant.cor_secundaria = '#212529'
             g.tenant.cor_fundo = '#f8f9fa'
             g.tenant.cor_texto = '#212529'
             try:
+                # Busca as cores diretamente do banco para garantir que são as mais recentes
                 result = db.session.execute(text("SELECT cor_primaria, cor_secundaria, cor_fundo, cor_texto FROM configuracao WHERE id = :id"), {"id": tenant.id}).fetchone()
                 if result:
                     if result[0]: g.tenant.cor_primaria = result[0]
@@ -190,7 +193,7 @@ def get_tenant():
                     if result[2]: g.tenant.cor_fundo = result[2]
                     if result[3]: g.tenant.cor_texto = result[3]
             except Exception:
-                pass # Se as colunas não existirem, usa os padrões definidos acima
+                pass 
             return
     
     g.tenant = None
@@ -478,7 +481,14 @@ def configuracoes():
             db.session.execute(text("UPDATE configuracao SET cor_primaria = :p, cor_secundaria = :s, cor_fundo = :f, cor_texto = :t WHERE id = :id"), 
                              {"p": cor_p, "s": cor_s, "f": cor_f, "t": cor_t, "id": g.tenant.id})
             db.session.commit()
-            # Limpa o cache do objeto g.tenant para refletir as mudanças imediatamente
+            
+            # Atualiza os valores no objeto g.tenant em memória para evitar inconsistência imediata
+            g.tenant.cor_primaria = cor_p
+            g.tenant.cor_secundaria = cor_s
+            g.tenant.cor_fundo = cor_f
+            g.tenant.cor_texto = cor_t
+            
+            # Força a expiração para que a próxima consulta busque do banco
             db.session.expire(g.tenant)
         except Exception:
             db.session.rollback()
