@@ -248,7 +248,11 @@ def index_root():
     if g.get('tenant'):
         return home_cliente()
     
-    barbearias = Configuracao.query.all() if (current_user.is_authenticated and hasattr(current_user, 'is_superadmin')) else Configuracao.query.filter_by(ativo=True).all()
+    # Se não houver tenant (acesso ao domínio principal), exige login do Master Admin
+    if not current_user.is_authenticated or not hasattr(current_user, 'is_superadmin'):
+        return redirect(url_for('login_master'))
+    
+    barbearias = Configuracao.query.all()
     return render_template('index_global.html', barbearias=barbearias)
 
 @app.route('/cadastrar_barbearia', methods=['GET', 'POST'])
