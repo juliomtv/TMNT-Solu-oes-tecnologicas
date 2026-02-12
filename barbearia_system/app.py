@@ -80,8 +80,9 @@ class Configuracao(db.Model):
     fidelidade_ativa = db.Column(db.Boolean, default=True)
     fidelidade_cortes_necessarios = db.Column(db.Integer, default=10)
     notificacao_minutos = db.Column(db.Integer, default=15)
-    cor_primaria = db.Column(db.String(7), default='#0d6efd')
-    cor_secundaria = db.Column(db.String(7), default='#212529')
+    # Colunas de cores comentadas temporariamente até a migração do banco de dados
+    # cor_primaria = db.Column(db.String(7), default='#0d6efd')
+    # cor_secundaria = db.Column(db.String(7), default='#212529')
     ativo = db.Column(db.Boolean, default=True)
     
     usuarios = db.relationship('Usuario', backref='barbearia', lazy=True, cascade="all, delete-orphan")
@@ -173,19 +174,13 @@ def get_tenant():
     if host.endswith(base_domain) and host != base_domain:
         # Extrai a primeira parte do host como subdomínio
         subdomain = host.split('.')[0]
-        try:
-            tenant = Configuracao.query.filter_by(slug=subdomain).first()
-            if tenant:
-                g.tenant = tenant
-                # Garantir que as cores tenham valores padrão se as colunas existirem mas forem nulas
-                if not hasattr(tenant, 'cor_primaria') or tenant.cor_primaria is None:
-                    tenant.cor_primaria = '#0d6efd'
-                if not hasattr(tenant, 'cor_secundaria') or tenant.cor_secundaria is None:
-                    tenant.cor_secundaria = '#212529'
-                return
-        except Exception:
-            # Se as colunas não existirem no banco ainda, g.tenant será None ou o erro será silenciado
-            pass
+        tenant = Configuracao.query.filter_by(slug=subdomain).first()
+        if tenant:
+            g.tenant = tenant
+            # Cores padrão fixas enquanto as colunas não são migradas no SQL Server
+            g.tenant.cor_primaria = '#0d6efd'
+            g.tenant.cor_secundaria = '#212529'
+            return
     
     g.tenant = None
 
@@ -436,14 +431,7 @@ def configuracoes():
         g.tenant.nome_barbearia = title_case(request.form.get('nome_barbearia'))
         g.tenant.horario_abertura = request.form.get('horario_abertura')
         g.tenant.horario_fechamento = request.form.get('horario_fechamento')
-        
-        # Tenta salvar as cores apenas se as colunas existirem
-        try:
-            g.tenant.cor_primaria = request.form.get('cor_primaria')
-            g.tenant.cor_secundaria = request.form.get('cor_secundaria')
-        except Exception:
-            pass
-            
+        # Salvamento de cores desativado temporariamente até migração do banco
         db.session.commit()
         flash('Configurações atualizadas!', 'success')
     servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
