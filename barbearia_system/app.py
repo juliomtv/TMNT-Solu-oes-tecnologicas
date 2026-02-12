@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, g, abort
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -14,6 +15,14 @@ load_dotenv()
 
 # Inicialização da aplicação Flask
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
+
+# Configurações de Cookie para permitir HTTPS (ngrok)
+app.config.update(
+    SESSION_COOKIE_SECURE=False,  # Mantemos False para não quebrar se acessar via HTTP local
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+)
 
 # Configurações de Domínio para Multi-tenant
 # O BASE_DOMAIN deve ser algo como 'meudominio.com.br' ou 'localhost:5000'
@@ -166,19 +175,19 @@ def get_tenant():
     if request.path.startswith('/static'):
         return
     
-    host_parts = request.host.split('.')
-    base_domain_parts = app.config.get('BASE_DOMAIN', 'localhost:5000').split(':')[0].split('.')
+    host = request.host.split(':')[0]
+    base_domain = app.config.get('BASE_DOMAIN', 'localhost:5000').split(':')[0]
     
-    # Lógica aprimorada para detectar subdomínio (tenant)
-    # Funciona para: barbearia.localhost:5000, barbearia.abc123.ngrok.io, etc.
     subdomain = None
-    
-    # Se temos mais partes no host do que no domínio base, a primeira parte é o subdomínio
-    if len(host_parts) > len(base_domain_parts):
-        subdomain = host_parts[0]
-    # Caso especial para ngrok (geralmente nome.ngrok.io ou nome.sub.ngrok.io)
-    elif 'ngrok' in request.host and len(host_parts) >= 3:
-        subdomain = host_parts[0]
+    # Se o host termina com o domínio base e não é igual a ele
+    if host.endswith(base_domain) and host != base_domain:
+        # O subdomínio é tudo o que vem antes do domínio base
+        subdomain = host.replace(f".{base_domain}", "")
+    # Fallback para ngrok se não bater com o base_domain
+    elif 'ngrok' in host:
+        parts = host.split('.')
+        if len(parts) >= 3: # barbearia.abc.ngrok-free.app (4 partes)
+            subdomain = parts[0]
         
     if subdomain:
         # Força o recarregamento do tenant para evitar cache de sessões anteriores
