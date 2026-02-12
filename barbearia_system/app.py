@@ -16,8 +16,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Configurações de Domínio para Multi-tenant
-# O SERVER_NAME pode causar erros 404 em ambiente local se não houver mapeamento no hosts.
-# Vamos usar o BASE_DOMAIN apenas para lógica de extração no middleware.
+# O BASE_DOMAIN deve ser algo como 'meudominio.com.br' ou 'localhost:5000'
 app.config['BASE_DOMAIN'] = os.getenv('BASE_DOMAIN', 'localhost:5000')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'chave-secreta-barbearia')
 
@@ -51,7 +50,6 @@ db = SQLAlchemy(app)
 # Configuração do Sistema de Login
 login_manager = LoginManager()
 login_manager.init_app(app)
-# # login_manager.login_view = 'login_global' # Removido para evitar redirecionamento automático global
 
 # --- Funções auxiliares ---
 
@@ -166,13 +164,13 @@ def get_tenant():
     if request.path.startswith('/static'):
         return
     
-    # Identifica o host e o domínio base
     host = request.host.split(':')[0]
     base_domain = app.config.get('BASE_DOMAIN', 'localhost').split(':')[0]
     
-    # Se estiver acessando via subdomínio
-    if host != base_domain and host.endswith(base_domain):
-        subdomain = host.replace(f".{base_domain}", "").rstrip('.')
+    # Se o host contém o base_domain e não é o próprio base_domain
+    if host.endswith(base_domain) and host != base_domain:
+        # Extrai a primeira parte do host como subdomínio
+        subdomain = host.split('.')[0]
         tenant = Configuracao.query.filter_by(slug=subdomain).first()
         if tenant:
             g.tenant = tenant
@@ -197,7 +195,6 @@ with app.app_context():
 
 @app.route('/login_master', methods=['GET', 'POST'])
 def login_global():
-    # Se já estiver logado como superadmin, vai para o painel
     if current_user.is_authenticated and hasattr(current_user, 'is_superadmin'):
         return redirect(url_for('index_root'))
     
@@ -213,37 +210,18 @@ def login_global():
 
 @app.route('/')
 def index_root():
-    # Se g.tenant existir, significa que estamos em um subdomínio.
-    # No Flask, se uma rota for definida com subdomain='<subdomain>', ela tem precedência.
-    # No entanto, se o SERVER_NAME não bater exatamente ou houver confusão de rotas, 
-    # podemos cair aqui. Se já houver um tenant no context g, não devemos redirecionar para a mesma rota.
     if g.get('tenant'):
-        # Se chegamos aqui e temos um tenant, mas a rota chamada foi a raiz global,
-        # o Flask pode estar confuso. Vamos apenas renderizar a home do cliente diretamente
-        # ou retornar um erro se a intenção for apenas a raiz global.
-        # Para corrigir o loop: Se já estamos no subdomínio, não redirecione.
-        return home_cliente(g.tenant.slug)
+        return home_cliente()
     
-    # Se não for superadmin, mostra a landing page (lista de barbearias)
-    if not (current_user.is_authenticated and hasattr(current_user, 'is_superadmin')):
-        barbearias = Configuracao.query.filter_by(ativo=True).all()
-        return render_template('index_global.html', barbearias=barbearias)
-    
-    # Se for superadmin, mostra o painel administrativo global
-    barbearias = Configuracao.query.all()
+    barbearias = Configuracao.query.all() if (current_user.is_authenticated and hasattr(current_user, 'is_superadmin')) else Configuracao.query.filter_by(ativo=True).all()
     return render_template('index_global.html', barbearias=barbearias)
 
 @app.route('/cadastrar_barbearia', methods=['GET', 'POST'])
 def cadastrar_barbearia():
-    # Se não houver nenhum administrador cadastrado, permite o primeiro cadastro
-    if Administrador.query.count() == 0:
-        pass 
-    else:
-        # Caso contrário, exige login de superadmin
-        if not current_user.is_authenticated:
+    if Administrador.query.count() > 0:
+        if not current_user.is_authenticated or not hasattr(current_user, 'is_superadmin'):
             return redirect(url_for('login_global'))
-        if not hasattr(current_user, 'is_superadmin'): 
-            abort(403)
+            
     if request.method == 'POST':
         nome = title_case(request.form.get('nome'))
         slug = slugify(request.form.get('nome'))
@@ -265,7 +243,6 @@ def cadastrar_barbearia():
 @app.route('/editar_barbearia/<int:id>', methods=['GET', 'POST'])
 @login_required
 def editar_barbearia(id):
-    if not current_user.is_authenticated: return redirect(url_for('login_global'))
     if not hasattr(current_user, 'is_superadmin'): abort(403)
     barbearia = Configuracao.query.get_or_404(id)
     if request.method == 'POST':
@@ -304,46 +281,45 @@ def cadastrar_admin():
         flash('Novo administrador cadastrado!', 'success')
     return redirect(url_for('index_root'))
 
-# --- ROTAS DO TENANT (SUBDOMÍNIO) ---
+# --- ROTAS DO TENANT (USAM g.tenant) ---
 
-@app.route('/', subdomain='<subdomain>')
-def home_cliente(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    return render_template('index.html', config=config)
+@app.route('/home')
+def home_cliente():
+    if not g.tenant: abort(404)
+    return render_template('index.html', config=g.tenant)
 
-@app.route('/login', subdomain='<subdomain>', methods=['GET', 'POST'])
-def login(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if not g.tenant: abort(404)
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        user = Usuario.query.filter_by(username=username, barbearia_id=config.id).first()
+        user = Usuario.query.filter_by(username=username, barbearia_id=g.tenant.id).first()
         if user and check_password_hash(user.password, password):
             login_user(user)
-            return redirect(url_for('index_admin', subdomain=subdomain))
+            return redirect(url_for('index_admin'))
         flash('Credenciais inválidas.', 'danger')
-    return render_template('login.html', config=config)
+    return render_template('login.html', config=g.tenant)
 
-@app.route('/admin', subdomain='<subdomain>')
+@app.route('/admin')
 @login_required
-def index_admin(subdomain):
-    if not current_user.is_authenticated: return redirect(url_for('login', subdomain=subdomain))
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == config.id)):
+def index_admin():
+    if not g.tenant: abort(404)
+    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == g.tenant.id)):
         abort(403)
-    return render_template('cliente_painel.html', config=config)
+    return render_template('cliente_painel.html', config=g.tenant)
 
-@app.route('/agendar', subdomain='<subdomain>', methods=['GET', 'POST'])
-def agendar(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
-    barbeiros = Usuario.query.filter_by(barbearia_id=config.id, is_admin=False).all()
+@app.route('/agendar', methods=['GET', 'POST'])
+def agendar():
+    if not g.tenant: abort(404)
+    servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
+    barbeiros = Usuario.query.filter_by(barbearia_id=g.tenant.id, is_admin=False).all()
     if request.method == 'POST':
         telefone = request.form.get('telefone')
         nome = title_case(request.form.get('nome'))
-        cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
+        cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=g.tenant.id).first()
         if not cliente:
-            cliente = Cliente(nome=nome, telefone=telefone, barbearia_id=config.id)
+            cliente = Cliente(nome=nome, telefone=telefone, barbearia_id=g.tenant.id)
             db.session.add(cliente)
             db.session.flush()
         
@@ -356,230 +332,230 @@ def agendar(subdomain):
             data_hora=data_hora,
             cliente_id=cliente.id,
             servico_id=servico_id,
-            barbearia_id=config.id,
+            barbearia_id=g.tenant.id,
             barbeiro_id=request.form.get('barbeiro_id')
         )
         db.session.add(novo)
         db.session.commit()
         flash('Agendamento realizado!', 'success')
-        return redirect(url_for('agendamento_confirmacao', subdomain=subdomain, agendamento_id=novo.id))
-    return render_template('cliente_agendar.html', config=config, servicos=servicos, barbeiros=barbeiros)
+        return redirect(url_for('agendamento_confirmacao', agendamento_id=novo.id))
+    return render_template('cliente_agendar.html', config=g.tenant, servicos=servicos, barbeiros=barbeiros)
 
-@app.route('/agendamento/confirmacao/<int:agendamento_id>', subdomain='<subdomain>')
-def agendamento_confirmacao(subdomain, agendamento_id):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    agendamento = Agendamento.query.filter_by(id=agendamento_id, barbearia_id=config.id).first_or_404()
-    return render_template('agendamento_confirmacao.html', config=config, agendamento=agendamento)
+@app.route('/agendamento/confirmacao/<int:agendamento_id>')
+def agendamento_confirmacao(agendamento_id):
+    if not g.tenant: abort(404)
+    agendamento = Agendamento.query.filter_by(id=agendamento_id, barbearia_id=g.tenant.id).first_or_404()
+    return render_template('agendamento_confirmacao.html', config=g.tenant, agendamento=agendamento)
 
-@app.route('/agendamentos', subdomain='<subdomain>')
+@app.route('/agendamentos')
 @login_required
-def listar_agendamentos(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == config.id)): abort(403)
-    agendamentos = Agendamento.query.filter_by(barbearia_id=config.id).order_by(Agendamento.data_hora.desc()).all()
-    return render_template('agendamentos.html', agendamentos=agendamentos, config=config)
+def listar_agendamentos():
+    if not g.tenant: abort(404)
+    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == g.tenant.id)): abort(403)
+    agendamentos = Agendamento.query.filter_by(barbearia_id=g.tenant.id).order_by(Agendamento.data_hora.desc()).all()
+    return render_template('agendamentos.html', agendamentos=agendamentos, config=g.tenant)
 
-@app.route('/admin/agendamento/novo', subdomain='<subdomain>', methods=['GET', 'POST'])
+@app.route('/admin/agendamento/novo', methods=['GET', 'POST'])
 @login_required
-def novo_agendamento(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == config.id)): abort(403)
+def novo_agendamento():
+    if not g.tenant: abort(404)
+    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == g.tenant.id)): abort(403)
     if request.method == 'POST':
         flash('Agendamento criado!', 'success')
-        return redirect(url_for('listar_agendamentos', subdomain=subdomain))
-    clientes = Cliente.query.filter_by(barbearia_id=config.id).all()
-    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
-    return render_template('agendamento_form.html', config=config, clientes=clientes, servicos=servicos)
+        return redirect(url_for('listar_agendamentos'))
+    clientes = Cliente.query.filter_by(barbearia_id=g.tenant.id).all()
+    servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
+    return render_template('agendamento_form.html', config=g.tenant, clientes=clientes, servicos=servicos)
 
-@app.route('/agendamento/concluir/<int:id>', subdomain='<subdomain>')
+@app.route('/agendamento/concluir/<int:id>')
 @login_required
-def concluir_agendamento(subdomain, id):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+def concluir_agendamento(id):
+    if not g.tenant: abort(404)
+    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=g.tenant.id).first_or_404()
     agendamento.status = 'Concluído'
     db.session.commit()
     flash('Atendimento concluído!', 'success')
-    return redirect(request.referrer or url_for('home_cliente', subdomain=subdomain))
+    return redirect(request.referrer or url_for('home_cliente'))
 
-@app.route('/agendamento/cancelar_admin/<int:id>', subdomain='<subdomain>')
+@app.route('/agendamento/cancelar_admin/<int:id>')
 @login_required
-def cancelar_agendamento_admin(subdomain, id):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+def cancelar_agendamento_admin(id):
+    if not g.tenant: abort(404)
+    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=g.tenant.id).first_or_404()
     agendamento.status = 'Cancelado'
     db.session.commit()
     flash('Agendamento cancelado!', 'warning')
-    return redirect(request.referrer or url_for('home_cliente', subdomain=subdomain))
+    return redirect(request.referrer or url_for('home_cliente'))
 
-@app.route('/agendamento/cancelar_cliente/<int:id>', subdomain='<subdomain>')
+@app.route('/agendamento/cancelar_cliente/<int:id>')
 @login_required
-def cancelar_agendamento_cliente(subdomain, id):
+def cancelar_agendamento_cliente(id):
     agendamento = Agendamento.query.filter_by(id=id, cliente_id=current_user.id).first_or_404()
     agendamento.status = 'Cancelado'
     db.session.commit()
     flash('Seu agendamento foi cancelado.', 'success')
-    return redirect(url_for('index_admin', subdomain=subdomain))
+    return redirect(url_for('index_admin'))
 
-@app.route('/agendamento/alterar_data/<int:id>', subdomain='<subdomain>', methods=['POST'])
+@app.route('/agendamento/alterar_data/<int:id>', methods=['POST'])
 @login_required
-def alterar_data_agendamento(subdomain, id):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+def alterar_data_agendamento(id):
+    if not g.tenant: abort(404)
+    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=g.tenant.id).first_or_404()
     nova_data = request.form.get('nova_data_hora')
     if nova_data:
         agendamento.data_hora = datetime.strptime(nova_data, '%Y-%m-%dT%H:%M')
         db.session.commit()
         flash('Data atualizada!', 'success')
-    return redirect(url_for('listar_agendamentos', subdomain=subdomain))
+    return redirect(url_for('listar_agendamentos'))
 
-@app.route('/configuracoes', subdomain='<subdomain>', methods=['GET', 'POST'])
+@app.route('/configuracoes', methods=['GET', 'POST'])
 @login_required
-def configuracoes(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == config.id)): abort(403)
+def configuracoes():
+    if not g.tenant: abort(404)
+    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == g.tenant.id)): abort(403)
     if request.method == 'POST':
-        config.nome_barbearia = title_case(request.form.get('nome_barbearia'))
-        config.horario_abertura = request.form.get('horario_abertura')
-        config.horario_fechamento = request.form.get('horario_fechamento')
+        g.tenant.nome_barbearia = title_case(request.form.get('nome_barbearia'))
+        g.tenant.horario_abertura = request.form.get('horario_abertura')
+        g.tenant.horario_fechamento = request.form.get('horario_fechamento')
         db.session.commit()
         flash('Configurações atualizadas!', 'success')
-    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
-    barbeiros = Usuario.query.filter_by(barbearia_id=config.id).all()
-    return render_template('configuracoes.html', config=config, servicos=servicos, usuarios=barbeiros)
+    servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
+    barbeiros = Usuario.query.filter_by(barbearia_id=g.tenant.id).all()
+    return render_template('configuracoes.html', config=g.tenant, servicos=servicos, usuarios=barbeiros)
 
-@app.route('/barbeiro/novo', subdomain='<subdomain>', methods=['POST'])
+@app.route('/barbeiro/novo', methods=['POST'])
 @login_required
-def novo_barbeiro(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+def novo_barbeiro():
+    if not g.tenant: abort(404)
     username = request.form.get('username')
-    novo = Usuario(username=username, password=generate_password_hash('Barbeiro123'), is_admin=False, barbearia_id=config.id)
+    novo = Usuario(username=username, password=generate_password_hash('Barbeiro123'), is_admin=False, barbearia_id=g.tenant.id)
     db.session.add(novo)
     db.session.commit()
     flash('Barbeiro adicionado!', 'success')
-    return redirect(url_for('configuracoes', subdomain=subdomain))
+    return redirect(url_for('configuracoes'))
 
-@app.route('/barbeiro/editar/<int:id>', subdomain='<subdomain>', methods=['POST'])
+@app.route('/barbeiro/editar/<int:id>', methods=['POST'])
 @login_required
-def editar_barbeiro(subdomain, id):
+def editar_barbeiro(id):
     barbeiro = Usuario.query.get_or_404(id)
     barbeiro.username = request.form.get('username')
     db.session.commit()
     flash('Barbeiro atualizado!', 'success')
-    return redirect(url_for('configuracoes', subdomain=subdomain))
+    return redirect(url_for('configuracoes'))
 
-@app.route('/barbeiro/excluir/<int:id>', subdomain='<subdomain>')
+@app.route('/barbeiro/excluir/<int:id>')
 @login_required
-def excluir_barbeiro(subdomain, id):
+def excluir_barbeiro(id):
     barbeiro = Usuario.query.get_or_404(id)
     db.session.delete(barbeiro)
     db.session.commit()
     flash('Barbeiro removido!', 'warning')
-    return redirect(url_for('configuracoes', subdomain=subdomain))
+    return redirect(url_for('configuracoes'))
 
-@app.route('/servico/novo', subdomain='<subdomain>', methods=['POST'])
+@app.route('/servico/novo', methods=['POST'])
 @login_required
-def novo_servico(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+def novo_servico():
+    if not g.tenant: abort(404)
     nome = request.form.get('nome')
     preco = float(request.form.get('preco', 0))
-    novo = Servico(nome=nome, preco=preco, barbearia_id=config.id)
+    novo = Servico(nome=nome, preco=preco, barbearia_id=g.tenant.id)
     db.session.add(novo)
     db.session.commit()
     flash('Serviço adicionado!', 'success')
-    return redirect(url_for('configuracoes', subdomain=subdomain))
+    return redirect(url_for('configuracoes'))
 
-@app.route('/servico/editar/<int:id>', subdomain='<subdomain>', methods=['POST'])
+@app.route('/servico/editar/<int:id>', methods=['POST'])
 @login_required
-def editar_servico(subdomain, id):
+def editar_servico(id):
     servico = Servico.query.get_or_404(id)
     servico.nome = request.form.get('nome')
     servico.preco = float(request.form.get('preco', 0))
     db.session.commit()
     flash('Serviço atualizado!', 'success')
-    return redirect(url_for('configuracoes', subdomain=subdomain))
+    return redirect(url_for('configuracoes'))
 
-@app.route('/servico/excluir/<int:id>', subdomain='<subdomain>')
+@app.route('/servico/excluir/<int:id>')
 @login_required
-def excluir_servico(subdomain, id):
+def excluir_servico(id):
     servico = Servico.query.get_or_404(id)
     db.session.delete(servico)
     db.session.commit()
     flash('Serviço removido!', 'warning')
-    return redirect(url_for('configuracoes', subdomain=subdomain))
+    return redirect(url_for('configuracoes'))
 
-@app.route('/clientes', subdomain='<subdomain>')
+@app.route('/clientes')
 @login_required
-def listar_clientes(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == config.id)): abort(403)
-    clientes = Cliente.query.filter_by(barbearia_id=config.id).all()
-    return render_template('clientes.html', clientes=clientes, config=config)
+def listar_clientes():
+    if not g.tenant: abort(404)
+    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == g.tenant.id)): abort(403)
+    clientes = Cliente.query.filter_by(barbearia_id=g.tenant.id).all()
+    return render_template('clientes.html', clientes=clientes, config=g.tenant)
 
-@app.route('/admin/cliente/novo', subdomain='<subdomain>', methods=['GET', 'POST'])
+@app.route('/admin/cliente/novo', methods=['GET', 'POST'])
 @login_required
-def novo_cliente(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+def novo_cliente():
+    if not g.tenant: abort(404)
     if request.method == 'POST':
         flash('Cliente cadastrado!', 'success')
-        return redirect(url_for('listar_clientes', subdomain=subdomain))
-    return render_template('cliente_form.html', config=config)
+        return redirect(url_for('listar_clientes'))
+    return render_template('cliente_form.html', config=g.tenant)
 
-@app.route('/admin/cliente/excluir/<int:id>', subdomain='<subdomain>')
+@app.route('/admin/cliente/excluir/<int:id>')
 @login_required
-def excluir_cliente(subdomain, id):
+def excluir_cliente(id):
     cliente = Cliente.query.get_or_404(id)
     db.session.delete(cliente)
     db.session.commit()
     flash('Cliente excluído!', 'warning')
-    return redirect(url_for('listar_clientes', subdomain=subdomain))
+    return redirect(url_for('listar_clientes'))
 
-@app.route('/fila/painel', subdomain='<subdomain>')
+@app.route('/fila/painel')
 @login_required
-def fila_painel(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    fila = Fila.query.filter_by(barbearia_id=config.id).order_by(Fila.posicao).all()
-    return render_template('fila_painel.html', config=config, fila=fila)
+def fila_painel():
+    if not g.tenant: abort(404)
+    fila = Fila.query.filter_by(barbearia_id=g.tenant.id).order_by(Fila.posicao).all()
+    return render_template('fila_painel.html', config=g.tenant, fila=fila)
 
-@app.route('/fila/entrar', subdomain='<subdomain>', methods=['GET', 'POST'])
-def entrar_fila(subdomain):
-    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+@app.route('/fila/entrar', methods=['GET', 'POST'])
+def entrar_fila():
+    if not g.tenant: abort(404)
     if request.method == 'POST':
         flash('Você entrou na fila!', 'success')
-        return redirect(url_for('home_cliente', subdomain=subdomain))
-    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
-    return render_template('fila_entrar.html', config=config, servicos=servicos)
+        return redirect(url_for('home_cliente'))
+    servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
+    return render_template('fila_entrar.html', config=g.tenant, servicos=servicos)
 
-@app.route('/fila/chamar/<int:id>', subdomain='<subdomain>')
+@app.route('/fila/chamar/<int:id>')
 @login_required
-def fila_chamar(subdomain, id):
+def fila_chamar(id):
     item = Fila.query.get_or_404(id)
     item.status = 'chamado'
     db.session.commit()
-    return redirect(url_for('fila_painel', subdomain=subdomain))
+    return redirect(url_for('fila_painel'))
 
-@app.route('/fila/atender/<int:id>', subdomain='<subdomain>')
+@app.route('/fila/atender/<int:id>')
 @login_required
-def fila_atender(subdomain, id):
+def fila_atender(id):
     item = Fila.query.get_or_404(id)
     item.status = 'atendendo'
     db.session.commit()
-    return redirect(url_for('fila_painel', subdomain=subdomain))
+    return redirect(url_for('fila_painel'))
 
-@app.route('/fila/finalizar/<int:id>', subdomain='<subdomain>')
+@app.route('/fila/finalizar/<int:id>')
 @login_required
-def fila_finalizar(subdomain, id):
+def fila_finalizar(id):
     item = Fila.query.get_or_404(id)
     item.status = 'finalizado'
     db.session.commit()
-    return redirect(url_for('fila_painel', subdomain=subdomain))
+    return redirect(url_for('fila_painel'))
 
-@app.route('/fila/ausente/<int:id>', subdomain='<subdomain>')
+@app.route('/fila/ausente/<int:id>')
 @login_required
-def fila_ausente(subdomain, id):
+def fila_ausente(id):
     item = Fila.query.get_or_404(id)
     item.status = 'ausente'
     db.session.commit()
-    return redirect(url_for('fila_painel', subdomain=subdomain))
+    return redirect(url_for('fila_painel'))
 
 @app.route('/logout')
 @login_required

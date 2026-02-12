@@ -8,7 +8,7 @@
     </div>
     <div class="col-md-4 text-end">
         <!-- Botão para o admin criar um agendamento manual -->
-        <a href="{{ url_for('novo_agendamento', subdomain=config.slug) }}" class="btn btn-primary">Novo Agendamento</a>
+        <a href="{{ url_for('novo_agendamento') }}" class="btn btn-primary">Novo Agendamento</a>
     </div>
 </div>
 
@@ -43,15 +43,15 @@
                         <td>
                             <!-- Ações administrativas para cada agendamento -->
                             {% if agendamento.status == 'Pendente' %}
-                            <a href="{{ url_for('concluir_agendamento', subdomain=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-primary">Confirmar</a>
+                            <a href="{{ url_for('concluir_agendamento') }}" class="btn btn-sm btn-primary">Confirmar</a>
                             {% endif %}
                             
                             {% if agendamento.status == 'Confirmado' %}
-                            <a href="{{ url_for('concluir_agendamento', subdomain=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-success">Concluir</a>
+                            <a href="{{ url_for('concluir_agendamento') }}" class="btn btn-sm btn-success">Concluir</a>
                             {% endif %}
                             
                             {% if agendamento.status in ['Pendente', 'Confirmado'] %}
-                            <a href="{{ url_for('cancelar_agendamento_admin', subdomain=config.slug, id=agendamento.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja cancelar?')">Cancelar</a>
+                            <a href="{{ url_for('cancelar_agendamento_admin') }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja cancelar?')">Cancelar</a>
                             {% endif %}
                         </td>
                     </tr>

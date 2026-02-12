@@ -96,7 +96,7 @@
                                 Editar
                             </button>
                             {% if usuario.id != current_user.id %}
-                            <a href="{{ url_for('excluir_barbeiro', subdomain=config.slug, id=usuario.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover este barbeiro?')">×</a>
+                            <a href="{{ url_for('excluir_barbeiro') }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover este barbeiro?')">×</a>
                             {% endif %}
                         </div>
                     </li>
@@ -124,7 +124,7 @@
                                     onclick="editarServico('{{ servico.id }}', '{{ servico.nome }}', '{{ servico.preco }}')">
                                 Editar
                             </button>
-                            <a href="{{ url_for('excluir_servico', subdomain=config.slug, id=servico.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir este serviço?')">×</a>
+                            <a href="{{ url_for('excluir_servico') }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir este serviço?')">×</a>
                         </div>
                     </li>
                     {% endfor %}
@@ -138,7 +138,7 @@
 <div class="modal fade" id="modalServico" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form id="formServico" action="{{ url_for('novo_servico', subdomain=config.slug) }}" method="POST">
+            <form id="formServico" action="{{ url_for('novo_servico') }}" method="POST">
                 <div class="modal-header">
                     <h5 class="modal-title" id="tituloModalServico">Adicionar Novo Serviço</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -166,7 +166,7 @@
 <div class="modal fade" id="modalBarbeiro" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form id="formBarbeiro" action="{{ url_for('novo_barbeiro', subdomain=config.slug) }}" method="POST">
+            <form id="formBarbeiro" action="{{ url_for('novo_barbeiro') }}" method="POST">
                 <div class="modal-header">
                     <h5 class="modal-title" id="tituloModalBarbeiro">Adicionar Novo Barbeiro</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -202,7 +202,7 @@ function copyLink() {
 
 function editarServico(id, nome, preco) {
     document.getElementById('tituloModalServico').innerText = 'Editar Serviço';
-    document.getElementById('formServico').action = "{{ url_for('configuracoes', subdomain=config.slug) }}".replace('/configuracoes', '/servico/editar/' + id);
+    document.getElementById('formServico').action = "{{ url_for('configuracoes') }}".replace('/configuracoes', '/servico/editar/' + id);
     document.getElementById('servicoNome').value = nome;
     document.getElementById('servicoPreco').value = preco;
     new bootstrap.Modal(document.getElementById('modalServico')).show();
@@ -210,7 +210,7 @@ function editarServico(id, nome, preco) {
 
 function editarBarbeiro(id, username) {
     document.getElementById('tituloModalBarbeiro').innerText = 'Editar Barbeiro';
-    document.getElementById('formBarbeiro').action = "{{ url_for('configuracoes', subdomain=config.slug) }}".replace('/configuracoes', '/barbeiro/editar/' + id);
+    document.getElementById('formBarbeiro').action = "{{ url_for('configuracoes') }}".replace('/configuracoes', '/barbeiro/editar/' + id);
     document.getElementById('barbeiroUsername').value = username;
     new bootstrap.Modal(document.getElementById('modalBarbeiro')).show();
 }
@@ -218,14 +218,14 @@ function editarBarbeiro(id, username) {
 // Reset modals on close
 document.getElementById('modalServico').addEventListener('hidden.bs.modal', function () {
     document.getElementById('tituloModalServico').innerText = 'Adicionar Novo Serviço';
-    document.getElementById('formServico').action = "{{ url_for('novo_servico', subdomain=config.slug) }}";
+    document.getElementById('formServico').action = "{{ url_for('novo_servico') }}";
     document.getElementById('servicoNome').value = '';
     document.getElementById('servicoPreco').value = '';
 });
 
 document.getElementById('modalBarbeiro').addEventListener('hidden.bs.modal', function () {
     document.getElementById('tituloModalBarbeiro').innerText = 'Adicionar Novo Barbeiro';
-    document.getElementById('formBarbeiro').action = "{{ url_for('novo_barbeiro', subdomain=config.slug) }}";
+    document.getElementById('formBarbeiro').action = "{{ url_for('novo_barbeiro') }}";
     document.getElementById('barbeiroUsername').value = '';
 });
 </script>
