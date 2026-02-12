@@ -1,7 +1,43 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container py-5">
+<!-- Sobrescreve o estilo da navbar apenas para esta página -->
+<style>
+    /* Esconde a navbar padrão do base.html para criar uma personalizada */
+    nav.navbar { display: none !important; }
+    
+    .venda-navbar {
+        padding: 20px 0;
+        background-color: #212529;
+        margin-bottom: 50px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .venda-logo {
+        max-height: 80px;
+        margin-right: 20px;
+    }
+    .venda-brand-name {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    @media (max-width: 768px) {
+        .venda-brand-name { font-size: 1.5rem; }
+        .venda-logo { max-height: 50px; }
+    }
+</style>
+
+<!-- Navbar Personalizada para a Página de Vendas -->
+<div class="venda-navbar">
+    <div class="container d-flex align-items-center justify-content-center justify-content-md-start">
+        <img src="{{ url_for('static', filename='uploads/logo.png') }}" alt="TMNT Logo" class="venda-logo">
+        <span class="venda-brand-name">TMNT Soluções Tecnológicas</span>
+    </div>
+</div>
+
+<div class="container">
     <!-- Seção de Apresentação (Hero) -->
     <div class="row align-items-center mb-5">
         <div class="col-lg-6">
