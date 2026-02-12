@@ -39,9 +39,10 @@
                         {% if getattr(current_user, 'is_admin', False) %}
                             <!-- Links Administrativos da Barbearia -->
                             {% if config %}
-                            <li class="nav-item"><a class="nav-link" href="{{ url_for('home_cliente') }}">Início</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{{ url_for('home_cliente') }}">Ver Site</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{{ url_for('index_admin') }}">Agenda</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_clientes') }}">Clientes</a></li>
-                            <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_agendamentos') }}">Agendamentos</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_agendamentos') }}">Histórico</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('fila_painel') }}">Fila Digital</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('configuracoes') }}">Configurações</a></li>
                             {% endif %}

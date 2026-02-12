@@ -286,7 +286,8 @@ def cadastrar_admin():
 @app.route('/home')
 def home_cliente():
     if not g.tenant: abort(404)
-    return render_template('index.html', config=g.tenant)
+    servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
+    return render_template('cliente_home.html', config=g.tenant, servicos=servicos)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
