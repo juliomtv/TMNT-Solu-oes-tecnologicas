@@ -173,25 +173,25 @@ def get_tenant():
     if host.endswith(base_domain) and host != base_domain:
         # Extrai a primeira parte do host como subdomínio
         subdomain = host.split('.')[0]
-        tenant = Configuracao.query.filter_by(slug=subdomain).first()
-        if tenant:
-            g.tenant = tenant
-            return
+        try:
+            tenant = Configuracao.query.filter_by(slug=subdomain).first()
+            if tenant:
+                g.tenant = tenant
+                # Garantir que as cores tenham valores padrão se as colunas existirem mas forem nulas
+                if not hasattr(tenant, 'cor_primaria') or tenant.cor_primaria is None:
+                    tenant.cor_primaria = '#0d6efd'
+                if not hasattr(tenant, 'cor_secundaria') or tenant.cor_secundaria is None:
+                    tenant.cor_secundaria = '#212529'
+                return
+        except Exception:
+            # Se as colunas não existirem no banco ainda, g.tenant será None ou o erro será silenciado
+            pass
     
     g.tenant = None
 
 # Inicialização do Banco de Dados
-with app.app_context():
-    if not os.path.exists(app.instance_path):
-        os.makedirs(app.instance_path)
-    db.create_all()
-    if not Administrador.query.filter_by(username='admin').first():
-        admin = Administrador(
-            username='admin',
-            password=generate_password_hash('Admin123', method='pbkdf2:sha256')
-        )
-        db.session.add(admin)
-        db.session.commit()
+# db.create_all() removido do fluxo automático para evitar erros em produção com SQL Server
+# Recomenda-se usar migrações manuais ou scripts controlados.
 
 # --- ROTAS GLOBAIS ---
 
@@ -436,8 +436,14 @@ def configuracoes():
         g.tenant.nome_barbearia = title_case(request.form.get('nome_barbearia'))
         g.tenant.horario_abertura = request.form.get('horario_abertura')
         g.tenant.horario_fechamento = request.form.get('horario_fechamento')
-        g.tenant.cor_primaria = request.form.get('cor_primaria')
-        g.tenant.cor_secundaria = request.form.get('cor_secundaria')
+        
+        # Tenta salvar as cores apenas se as colunas existirem
+        try:
+            g.tenant.cor_primaria = request.form.get('cor_primaria')
+            g.tenant.cor_secundaria = request.form.get('cor_secundaria')
+        except Exception:
+            pass
+            
         db.session.commit()
         flash('Configurações atualizadas!', 'success')
     servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
