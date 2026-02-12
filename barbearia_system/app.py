@@ -178,17 +178,11 @@ def get_tenant():
     # Host atual da requisição (ex: barbearia.abc.ngrok-free.app)
     host = request.host.split(':')[0]
     
-    # Se o BASE_DOMAIN não estiver no .env, tentamos deduzir
+    # Se o BASE_DOMAIN não estiver no .env, usamos o host atual como base
     base_domain = app.config.get('BASE_DOMAIN')
     if not base_domain:
-        # Se for ngrok, o base_domain são as últimas 3 partes (ex: abc.ngrok-free.app)
-        if 'ngrok' in host:
-            parts = host.split('.')
-            if len(parts) >= 3:
-                base_domain = '.'.join(parts[1:])
-        else:
-            # Padrão para local
-            base_domain = 'localhost'
+        # O base_domain é o host atual (sem subdomínios se possível, mas o request.host resolve)
+        base_domain = request.host
 
     subdomain = None
     # Se o host termina com o domínio base e não é igual a ele
