@@ -50,7 +50,7 @@ db = SQLAlchemy(app)
 # Configuração do Sistema de Login
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login_global'
+# # login_manager.login_view = 'login_global' # Removido para evitar redirecionamento automático global
 
 # --- Funções auxiliares ---
 
@@ -214,12 +214,16 @@ def login_global():
 
 @app.route('/')
 def index_root():
-    # Se estiver em um subdomínio, o Flask já deveria ter caído na home_cliente
-    # Mas como redundância, se g.tenant existir, redirecionamos (apenas se não estiver no subdomínio correto)
+    # Se g.tenant existir, significa que estamos em um subdomínio.
+    # No Flask, se uma rota for definida com subdomain='<subdomain>', ela tem precedência.
+    # No entanto, se o SERVER_NAME não bater exatamente ou houver confusão de rotas, 
+    # podemos cair aqui. Se já houver um tenant no context g, não devemos redirecionar para a mesma rota.
     if g.get('tenant'):
-        # Verificamos se já estamos na rota correta para evitar loop
-        # No Flask com SERVER_NAME e subdomains, '/' no subdomínio cai em home_cliente
-        return redirect(url_for('home_cliente', subdomain=g.tenant.slug))
+        # Se chegamos aqui e temos um tenant, mas a rota chamada foi a raiz global,
+        # o Flask pode estar confuso. Vamos apenas renderizar a home do cliente diretamente
+        # ou retornar um erro se a intenção for apenas a raiz global.
+        # Para corrigir o loop: Se já estamos no subdomínio, não redirecione.
+        return home_cliente(g.tenant.slug)
     
     # Se não for superadmin, mostra a landing page (lista de barbearias)
     if not (current_user.is_authenticated and hasattr(current_user, 'is_superadmin')):
@@ -231,9 +235,16 @@ def index_root():
     return render_template('index_global.html', barbearias=barbearias)
 
 @app.route('/cadastrar_barbearia', methods=['GET', 'POST'])
-@login_required
 def cadastrar_barbearia():
-    if not hasattr(current_user, 'is_superadmin'): abort(403)
+    # Se não houver nenhum administrador cadastrado, permite o primeiro cadastro
+    if Administrador.query.count() == 0:
+        pass 
+    else:
+        # Caso contrário, exige login de superadmin
+        if not current_user.is_authenticated:
+            return redirect(url_for('login_global'))
+        if not hasattr(current_user, 'is_superadmin'): 
+            abort(403)
     if request.method == 'POST':
         nome = title_case(request.form.get('nome'))
         slug = slugify(request.form.get('nome'))
@@ -255,6 +266,7 @@ def cadastrar_barbearia():
 @app.route('/editar_barbearia/<int:id>', methods=['GET', 'POST'])
 @login_required
 def editar_barbearia(id):
+    if not current_user.is_authenticated: return redirect(url_for('login_global'))
     if not hasattr(current_user, 'is_superadmin'): abort(403)
     barbearia = Configuracao.query.get_or_404(id)
     if request.method == 'POST':
@@ -316,6 +328,7 @@ def login(subdomain):
 @app.route('/admin', subdomain='<subdomain>')
 @login_required
 def index_admin(subdomain):
+    if not current_user.is_authenticated: return redirect(url_for('login', subdomain=subdomain))
     config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
     if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == config.id)):
         abort(403)
