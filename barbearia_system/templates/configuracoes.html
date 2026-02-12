@@ -96,7 +96,7 @@
                                 Editar
                             </button>
                             {% if usuario.id != current_user.id %}
-                            <a href="{{ url_for('excluir_barbeiro') }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover este barbeiro?')">×</a>
+                            <a href="{{ url_for('excluir_barbeiro', id=usuario.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover este barbeiro?')">×</a>
                             {% endif %}
                         </div>
                     </li>
@@ -124,7 +124,7 @@
                                     onclick="editarServico('{{ servico.id }}', '{{ servico.nome }}', '{{ servico.preco }}')">
                                 Editar
                             </button>
-                            <a href="{{ url_for('excluir_servico') }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir este serviço?')">×</a>
+                            <a href="{{ url_for('excluir_servico', id=servico.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir este serviço?')">×</a>
                         </div>
                     </li>
                     {% endfor %}
