@@ -310,9 +310,14 @@ def index_admin():
     
     # Se for um administrador ou superadmin, mostra a agenda do dia (index.html)
     if getattr(current_user, 'is_admin', False) or hasattr(current_user, 'is_superadmin'):
+        hoje = datetime.now().date()
+        inicio_dia = datetime.combine(hoje, datetime.min.time())
+        fim_dia = datetime.combine(hoje, datetime.max.time())
+        
         agendamentos = Agendamento.query.filter(
             Agendamento.barbearia_id == g.tenant.id,
-            db.func.date(Agendamento.data_hora) == datetime.now().date()
+            Agendamento.data_hora >= inicio_dia,
+            Agendamento.data_hora <= fim_dia
         ).order_by(Agendamento.data_hora.asc()).all()
         return render_template('index.html', config=g.tenant, agendamentos=agendamentos)
     
