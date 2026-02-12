@@ -80,9 +80,9 @@ class Configuracao(db.Model):
     fidelidade_ativa = db.Column(db.Boolean, default=True)
     fidelidade_cortes_necessarios = db.Column(db.Integer, default=10)
     notificacao_minutos = db.Column(db.Integer, default=15)
-    # Colunas de cores comentadas temporariamente até a migração do banco de dados
-    # cor_primaria = db.Column(db.String(7), default='#0d6efd')
-    # cor_secundaria = db.Column(db.String(7), default='#212529')
+    # Colunas de cores reativadas
+    cor_primaria = db.Column(db.String(7), default='#0d6efd')
+    cor_secundaria = db.Column(db.String(7), default='#212529')
     ativo = db.Column(db.Boolean, default=True)
     
     usuarios = db.relationship('Usuario', backref='barbearia', lazy=True, cascade="all, delete-orphan")
@@ -174,13 +174,17 @@ def get_tenant():
     if host.endswith(base_domain) and host != base_domain:
         # Extrai a primeira parte do host como subdomínio
         subdomain = host.split('.')[0]
-        tenant = Configuracao.query.filter_by(slug=subdomain).first()
-        if tenant:
-            g.tenant = tenant
-            # Cores padrão fixas enquanto as colunas não são migradas no SQL Server
-            g.tenant.cor_primaria = '#0d6efd'
-            g.tenant.cor_secundaria = '#212529'
-            return
+        try:
+            tenant = Configuracao.query.filter_by(slug=subdomain).first()
+            if tenant:
+                g.tenant = tenant
+                # Garante valores padrão se as colunas existirem mas forem nulas
+                if not g.tenant.cor_primaria: g.tenant.cor_primaria = '#0d6efd'
+                if not g.tenant.cor_secundaria: g.tenant.cor_secundaria = '#212529'
+                return
+        except Exception:
+            # Se as colunas não existirem, silencia o erro para o site não cair
+            pass
     
     g.tenant = None
 
@@ -190,8 +194,28 @@ def get_tenant():
 
 # --- ROTAS GLOBAIS ---
 
+@app.route('/migrar_cores')
+def migrar_cores():
+    from sqlalchemy import text
+    results = []
+    commands = [
+        "ALTER TABLE configuracao ADD cor_primaria VARCHAR(7) DEFAULT '#0d6efd'",
+        "ALTER TABLE configuracao ADD cor_secundaria VARCHAR(7) DEFAULT '#212529'",
+        "UPDATE configuracao SET cor_primaria = '#0d6efd' WHERE cor_primaria IS NULL",
+        "UPDATE configuracao SET cor_secundaria = '#212529' WHERE cor_secundaria IS NULL"
+    ]
+    for cmd in commands:
+        try:
+            db.session.execute(text(cmd))
+            db.session.commit()
+            results.append(f"Sucesso: {cmd}")
+        except Exception as e:
+            db.session.rollback()
+            results.append(f"Erro ({cmd}): {str(e)}")
+    return "<br>".join(results)
+
 @app.route('/login_master', methods=['GET', 'POST'])
-def login_global():
+def login_master():
     if current_user.is_authenticated and hasattr(current_user, 'is_superadmin'):
         return redirect(url_for('index_root'))
     
@@ -431,7 +455,14 @@ def configuracoes():
         g.tenant.nome_barbearia = title_case(request.form.get('nome_barbearia'))
         g.tenant.horario_abertura = request.form.get('horario_abertura')
         g.tenant.horario_fechamento = request.form.get('horario_fechamento')
-        # Salvamento de cores desativado temporariamente até migração do banco
+        
+        # Tenta salvar as cores
+        try:
+            g.tenant.cor_primaria = request.form.get('cor_primaria')
+            g.tenant.cor_secundaria = request.form.get('cor_secundaria')
+        except Exception:
+            pass
+            
         db.session.commit()
         flash('Configurações atualizadas!', 'success')
     servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
