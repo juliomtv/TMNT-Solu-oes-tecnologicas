@@ -41,15 +41,11 @@
     <nav class="navbar navbar-expand-lg navbar-dark mb-4">
         <div class="container">
             <!-- Logo ou Nome da Barbearia -->
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home_cliente') if config else url_for('index_root') }}">
-                {% if not config and current_user.is_authenticated and getattr(current_user, 'is_superadmin', False) %}
-                    <img src="{{ url_for('static', filename='uploads/logo.png') }}" alt="Logo" height="30" class="me-2">
-                    TMNT Soluções
-                {% else %}
-                    {{ config.nome_barbearia if config else 'BarberManager' }}
-                {% endif %}
+            <a class="navbar-brand fw-bold" href="{{ url_for('home_cliente') if config else url_for('index_root') }}">
+                {{ config.nome_barbearia if config else 'TMNT Barbearias' }}
             </a>
             
+            <!-- Botão para menu mobile -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -63,9 +59,8 @@
                             {% if config %}
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('home_cliente') }}">Ver Site</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('index_admin') }}">Agenda</a></li>
-                            <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_clientes') }}">Clientes</a></li>
-                            <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_agendamentos') }}">Histórico</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('fila_painel') }}">Fila Digital</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_clientes') }}">Clientes</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('configuracoes') }}">Configurações</a></li>
                             {% endif %}
                             <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') }}">Sair</a></li>
@@ -81,8 +76,8 @@
                     {% else %}
                         <!-- Links para Visitantes (Não Logados) -->
                         {% if config %}
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('home_cliente') }}">Meus Agendamentos</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Admin</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login_cliente') }}">Meus Agendamentos</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login_admin') }}">Admin</a></li>
                         {% endif %}
                     {% endif %}
                 </ul>
@@ -90,12 +85,13 @@
         </div>
     </nav>
 
+    <!-- Container Principal para o Conteúdo das Páginas -->
     <div class="container">
         <!-- Exibição de Mensagens de Alerta (Flash Messages) -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show">
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
@@ -103,76 +99,11 @@
             {% endif %}
         {% endwith %}
 
-        <!-- Conteúdo Principal de cada página -->
+        <!-- Bloco onde o conteúdo de cada página será inserido -->
         {% block content %}{% endblock %}
     </div>
 
+    <!-- Scripts do Bootstrap -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Container para Toasts de Notificação (Avisos no canto da tela) -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div id="notifToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header bg-primary text-white">
-                <strong class="me-auto">Lembrete de Agendamento</strong>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div class="toast-body" id="notifToastBody">
-                <!-- Mensagem será inserida dinamicamente via JS -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Script de Notificações em Tempo Real -->
-    {% if config and (current_user.is_authenticated or session.get('cliente_telefone')) and not getattr(current_user, 'is_admin', False) %}
-    <script>
-        // Função para mostrar notificação visual e sonora
-        function exibirNotificacao(mensagem, id) {
-            const notificationId = "notif_" + id;
-            if (sessionStorage.getItem(notificationId)) return;
-
-            // Tenta notificação nativa do navegador
-            if ("Notification" in window && Notification.permission === "granted") {
-                new Notification("Lembrete de Agendamento", {
-                    body: mensagem,
-                    icon: "{{ url_for('static', filename='uploads/logo.png') }}"
-                });
-            }
-
-            // Mostra o Toast do Bootstrap
-            const toastEl = document.getElementById('notifToast');
-            const toastBody = document.getElementById('notifToastBody');
-            if (toastEl && toastBody) {
-                toastBody.innerText = mensagem;
-                const toast = new bootstrap.Toast(toastEl, { autohide: false });
-                toast.show();
-                
-                // Toca um som de aviso
-                try {
-                    const audio = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_c8c8a73056.mp3');
-                    audio.play();
-                } catch(e) {}
-            }
-
-            sessionStorage.setItem(notificationId, "true");
-        }
-
-        // Função que consulta o servidor em busca de novas atualizações
-        function verificarNotificacoes() {
-            // Rota hipotética ou futura para notificações
-            // fetch("{{ url_for('api_notificacoes') if config else '#' }}")
-            //     .then(response => response.json())
-            //     .then(data => {
-            //         if (data.notificar) {
-            //             exibirNotificacao(data.mensagem, data.id);
-            //         }
-            //     });
-        }
-
-        // Verifica a cada 30 segundos
-        if ("{{ current_user.id }}") {
-            // setInterval(verificarNotificacoes, 30000);
-        }
-    </script>
-    {% endif %}
 </body>
 </html>

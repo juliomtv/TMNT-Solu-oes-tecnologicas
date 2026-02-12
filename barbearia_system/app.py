@@ -325,7 +325,22 @@ def home_cliente():
     return render_template('cliente_home.html', config=g.tenant, servicos=servicos)
 
 @app.route('/login', methods=['GET', 'POST'])
-def login():
+def login_cliente():
+    if not g.tenant: abort(404)
+    if current_user.is_authenticated:
+        return redirect(url_for('index_admin'))
+        
+    if request.method == 'POST':
+        telefone = request.form.get('telefone')
+        cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=g.tenant.id).first()
+        if cliente:
+            login_user(cliente)
+            return redirect(url_for('index_admin'))
+        flash('Nenhum agendamento encontrado para este número.', 'warning')
+    return render_template('cliente_login.html', config=g.tenant)
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def login_admin():
     if not g.tenant: abort(404)
     if request.method == 'POST':
         username = request.form.get('username')
