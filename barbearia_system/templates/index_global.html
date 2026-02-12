@@ -57,7 +57,7 @@
                     </div>
                     <div class="card-body p-4 text-center">
                         <h3 class="card-title mt-3">{{ b.nome_barbearia }}</h3>
-                        <p class="text-muted">Link: {{ b.slug }}.{{ config['SERVER_NAME'] }}</p>
+                        <p class="text-muted">Link: {{ b.slug }}.{{ config['BASE_DOMAIN'] }}</p>
                         
                         <div class="d-grid gap-2">
                             <a href="{{ url_for('home_cliente', subdomain=b.slug) }}" class="btn btn-outline-primary">Acessar Unidade</a>

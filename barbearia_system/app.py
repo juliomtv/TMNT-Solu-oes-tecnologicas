@@ -16,8 +16,9 @@ load_dotenv()
 app = Flask(__name__)
 
 # Configurações de Domínio para Multi-tenant
-# O BASE_DOMAIN deve ser algo como 'meudominio.com.br' ou 'localhost:5000'
-app.config['SERVER_NAME'] = os.getenv('BASE_DOMAIN', 'localhost:5000')
+# O SERVER_NAME pode causar erros 404 em ambiente local se não houver mapeamento no hosts.
+# Vamos usar o BASE_DOMAIN apenas para lógica de extração no middleware.
+app.config['BASE_DOMAIN'] = os.getenv('BASE_DOMAIN', 'localhost:5000')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'chave-secreta-barbearia')
 
 # Adiciona utilitários ao contexto do Jinja2 para uso nos templates
@@ -167,16 +168,14 @@ def get_tenant():
     
     # Identifica o host e o domínio base
     host = request.host.split(':')[0]
-    base_domain = app.config['SERVER_NAME'].split(':')[0]
+    base_domain = app.config.get('BASE_DOMAIN', 'localhost').split(':')[0]
     
     # Se estiver acessando via subdomínio
     if host != base_domain and host.endswith(base_domain):
-        subdomain = host.replace(f".{base_domain}", "")
+        subdomain = host.replace(f".{base_domain}", "").rstrip('.')
         tenant = Configuracao.query.filter_by(slug=subdomain).first()
         if tenant:
             g.tenant = tenant
-            # Se tentar acessar a rota raiz '/' via subdomínio, o Flask já encaminha para home_cliente
-            # Não precisamos de redirecionamento aqui para evitar loop
             return
     
     g.tenant = None
