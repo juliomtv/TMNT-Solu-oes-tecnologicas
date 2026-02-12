@@ -228,6 +228,11 @@ def migrar_cores():
             results.append(f"Erro ({cmd}): {str(e)}")
     return "<br>".join(results)
 
+@app.route('/venda')
+def pagina_venda():
+    # A página de venda deve ser acessível globalmente
+    return render_template('venda.html')
+
 @app.route('/login_master', methods=['GET', 'POST'])
 def login_master():
     if current_user.is_authenticated and hasattr(current_user, 'is_superadmin'):

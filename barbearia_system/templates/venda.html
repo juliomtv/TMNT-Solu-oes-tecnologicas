@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Seção de Apresentação (Hero) -->
+    <div class="row align-items-center mb-5">
+        <div class="col-lg-6">
+            <h1 class="display-4 fw-bold mb-3">Transforme sua Barbearia com o TMNT Soluções</h1>
+            <p class="lead mb-4">A solução completa para gestão de agendamentos, fidelização de clientes e organização financeira. Ganhe tempo para o que realmente importa: a arte de cortar cabelos.</p>
+            <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                <a href="#planos" class="btn btn-primary btn-lg px-4 me-md-2">Ver Planos</a>
+                <a href="{{ url_for('cadastrar_barbearia') }}" class="btn btn-outline-secondary btn-lg px-4">Teste Grátis</a>
+            </div>
+        </div>
+        <div class="col-lg-6 mt-4 mt-lg-0">
+            <div class="card bg-dark text-white p-4 shadow-lg border-0" style="border-radius: 20px;">
+                <h3 class="text-primary mb-3">Por que escolher nossa plataforma?</h3>
+                <ul class="list-unstyled">
+                    <li class="mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i> <strong>Agendamento Online 24/7:</strong> Seu cliente marca o horário sem você precisar atender o telefone.</li>
+                    <li class="mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i> <strong>Fila Digital:</strong> Organize a espera e evite aglomerações na sua barbearia.</li>
+                    <li class="mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i> <strong>Sistema de Fidelidade:</strong> Recompense seus clientes fiéis e aumente seu faturamento.</li>
+                    <li class="mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i> <strong>Gestão Multi-tenant:</strong> Tenha seu próprio subdomínio exclusivo (suabarbearia.tmnt.com.br).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de Benefícios -->
+    <div class="row text-center mb-5">
+        <div class="col-md-4 mb-4">
+            <div class="p-3">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-graph-up" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07Z"/>
+                    </svg>
+                </div>
+                <h4>Aumente sua Produtividade</h4>
+                <p class="text-muted">Reduza em até 80% o tempo gasto com tarefas administrativas e agendamentos manuais.</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="p-3">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-people" viewBox="0 0 16 16">
+                        <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1h8Zm-7.978-1A.261.261 0 0 1 7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002a.274.274 0 0 1-.014.002H7.022ZM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM6.936 9.28a5.88 5.88 0 0 0-1.23-.247A7.35 7.35 0 0 0 5 9c-4 0-5 3-5 4 0 .667.333 1 1 1h4.216A2.238 2.238 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816ZM4.92 10A5.493 5.493 0 0 0 4 13H1c0-.26.164-1.03.76-1.724C2.312 10.642 3.282 10 5 10c.002 0 .005 0 .008 0l-.088.002Zm1-5a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm1-1a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/>
+                    </svg>
+                </div>
+                <h4>Organização Total</h4>
+                <p class="text-muted">Histórico completo de clientes, serviços realizados e preferências em um só lugar.</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="p-3">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-shield-check" viewBox="0 0 16 16">
+                        <path d="M8 14.933a.615.615 0 0 0 .1-.025c.076-.023.174-.061.294-.118.24-.113.547-.29.893-.533a10.726 10.726 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067v13.866zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.775 11.775 0 0 1-2.517 2.453 7.159 7.159 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7.158 7.158 0 0 1-1.048-.625 11.777 11.777 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 62.456 62.456 0 0 1 5.072.56z"/>
+                        <path d="M10.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
+                    </svg>
+                </div>
+                <h4>Segurança e Estabilidade</h4>
+                <p class="text-muted">Dados protegidos em nuvem com alta disponibilidade para você nunca ficar na mão.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de Planos -->
+    <div id="planos" class="py-5">
+        <h2 class="text-center mb-5 fw-bold">Escolha o Plano Ideal para seu Negócio</h2>
+        <div class="row row-cols-1 row-cols-md-3 mb-3 text-center">
+            <!-- Plano Mensal -->
+            <div class="col">
+                <div class="card mb-4 rounded-3 shadow-sm">
+                    <div class="card-header py-3">
+                        <h4 class="my-0 fw-normal">Mensal</h4>
+                    </div>
+                    <div class="card-body">
+                        <h1 class="card-title pricing-card-title">R$ XX<small class="text-muted fw-light">/mês</small></h1>
+                        <ul class="list-unstyled mt-3 mb-4">
+                            <li>Acesso Completo</li>
+                            <li>Subdomínio Exclusivo</li>
+                            <li>Suporte via WhatsApp</li>
+                            <li>Cancelamento a qualquer momento</li>
+                        </ul>
+                        <a href="#" class="w-100 btn btn-lg btn-outline-primary">Assinar Agora</a>
+                    </div>
+                </div>
+            </div>
+            <!-- Plano Trimestral -->
+            <div class="col">
+                <div class="card mb-4 rounded-3 shadow-sm border-primary">
+                    <div class="card-header py-3 text-white bg-primary border-primary">
+                        <h4 class="my-0 fw-normal">Trimestral</h4>
+                    </div>
+                    <div class="card-body">
+                        <h1 class="card-title pricing-card-title">R$ XX<small class="text-muted fw-light">/trimestre</small></h1>
+                        <ul class="list-unstyled mt-3 mb-4">
+                            <li><strong>Economia de 15%</strong></li>
+                            <li>Acesso Completo</li>
+                            <li>Suporte Prioritário</li>
+                            <li>Treinamento Inicial</li>
+                        </ul>
+                        <a href="#" class="w-100 btn btn-lg btn-primary">Assinar Agora</a>
+                    </div>
+                </div>
+            </div>
+            <!-- Plano Anual -->
+            <div class="col">
+                <div class="card mb-4 rounded-3 shadow-sm">
+                    <div class="card-header py-3">
+                        <h4 class="my-0 fw-normal">Anual</h4>
+                    </div>
+                    <div class="card-body">
+                        <h1 class="card-title pricing-card-title">R$ XX<small class="text-muted fw-light">/ano</small></h1>
+                        <ul class="list-unstyled mt-3 mb-4">
+                            <li><strong>Economia de 30%</strong></li>
+                            <li>Acesso Completo</li>
+                            <li>Consultoria de Gestão</li>
+                            <li>Novas funcionalidades primeiro</li>
+                        </ul>
+                        <a href="#" class="w-100 btn btn-lg btn-outline-primary">Assinar Agora</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rodapé da Venda -->
+    <div class="text-center mt-5">
+        <p class="text-muted">Dúvidas? Entre em contato com nosso time comercial.</p>
+        <p class="fw-bold">TMNT Soluções Tecnológicas - 2026</p>
+    </div>
+</div>
+{% endblock %}
