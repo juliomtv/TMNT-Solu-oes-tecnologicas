@@ -60,7 +60,11 @@
                         <p class="text-muted">Link: {{ b.slug }}.{{ request.host }}</p>
                         
                         <div class="d-grid gap-2">
+                            {% if 'ngrok' in request.host %}
+                            <a href="/{{ b.slug }}/home" class="btn btn-outline-primary">Acessar Unidade (Ngrok)</a>
+                            {% else %}
                             <a href="//{{ b.slug }}.{{ request.host }}" class="btn btn-outline-primary">Acessar Unidade</a>
+                            {% endif %}
                             <div class="btn-group mt-2">
                                 <a href="{{ url_for('editar_barbearia', id=b.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
                                 <a href="{{ url_for('excluir_barbearia', id=b.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir esta barbearia e todos os seus dados?')">Excluir</a>

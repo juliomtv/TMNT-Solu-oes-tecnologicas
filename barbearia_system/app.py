@@ -181,20 +181,44 @@ def get_tenant():
     # Se o BASE_DOMAIN não estiver no .env, usamos o host atual como base
     base_domain = app.config.get('BASE_DOMAIN')
     if not base_domain:
-        # O base_domain é o host atual (sem subdomínios se possível, mas o request.host resolve)
         base_domain = request.host
 
     subdomain = None
-    # Se o host termina com o domínio base e não é igual a ele
+    
+    # 1. Tentar detectar por subdomínio
     if base_domain and host.endswith(base_domain) and host != base_domain:
-        # O subdomínio é tudo o que vem antes do domínio base
         subdomain = host.replace(f".{base_domain}", "")
-    # Caso especial para ngrok se a lógica acima falhar
     elif 'ngrok' in host:
         parts = host.split('.')
         if len(parts) >= 3:
             subdomain = parts[0]
-        
+
+    # 2. Fallback para ngrok: Tentar detectar por subpasta (ex: ngrok.io/bicuda)
+    # Isso resolve o erro de SSL do plano gratuito do ngrok
+    if not subdomain and 'ngrok' in host:
+        path_parts = request.path.split('/')
+        if len(path_parts) > 1 and path_parts[1]:
+            # Verifica se a primeira parte do path é um slug de barbearia válido
+            potential_slug = path_parts[1]
+            tenant = Configuracao.query.filter_by(slug=potential_slug).first()
+            if tenant:
+                g.tenant = tenant
+                # Lógica de cores (mantida igual)
+                from sqlalchemy import text
+                g.tenant.cor_primaria = '#0d6efd'
+                g.tenant.cor_secundaria = '#212529'
+                g.tenant.cor_fundo = '#f8f9fa'
+                g.tenant.cor_texto = '#212529'
+                try:
+                    result = db.session.execute(text("SELECT cor_primaria, cor_secundaria, cor_fundo, cor_texto FROM configuracao WHERE id = :id"), {"id": tenant.id}).fetchone()
+                    if result:
+                        if result[0]: g.tenant.cor_primaria = result[0]
+                        if result[1]: g.tenant.cor_secundaria = result[1]
+                        if result[2]: g.tenant.cor_fundo = result[2]
+                        if result[3]: g.tenant.cor_texto = result[3]
+                except Exception: pass
+                return
+
     if subdomain:
         # Força o recarregamento do tenant para evitar cache de sessões anteriores
         tenant = Configuracao.query.filter_by(slug=subdomain).populate_existing().first()
@@ -351,28 +375,31 @@ def cadastrar_admin():
 # --- ROTAS DO TENANT (USAM g.tenant) ---
 
 @app.route('/home')
-def home_cliente():
+@app.route('/<slug>/home')
+def home_cliente(slug=None):
     if not g.tenant: abort(404)
     servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
     return render_template('cliente_home.html', config=g.tenant, servicos=servicos)
 
 @app.route('/login', methods=['GET', 'POST'])
-def login_cliente():
+@app.route('/<slug>/login', methods=['GET', 'POST'])
+def login_cliente(slug=None):
     if not g.tenant: abort(404)
     if current_user.is_authenticated:
-        return redirect(url_for('index_admin'))
+        return redirect(url_for('index_admin', slug=slug))
         
     if request.method == 'POST':
         telefone = request.form.get('telefone')
         cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=g.tenant.id).first()
         if cliente:
             login_user(cliente)
-            return redirect(url_for('index_admin'))
+            return redirect(url_for('index_admin', slug=slug))
         flash('Nenhum agendamento encontrado para este número.', 'warning')
     return render_template('cliente_login.html', config=g.tenant)
 
 @app.route('/admin/login', methods=['GET', 'POST'])
-def login_admin():
+@app.route('/<slug>/admin/login', methods=['GET', 'POST'])
+def login_admin(slug=None):
     if not g.tenant: abort(404)
     if request.method == 'POST':
         username = request.form.get('username')
@@ -380,13 +407,14 @@ def login_admin():
         user = Usuario.query.filter_by(username=username, barbearia_id=g.tenant.id).first()
         if user and check_password_hash(user.password, password):
             login_user(user)
-            return redirect(url_for('index_admin'))
+            return redirect(url_for('index_admin', slug=slug))
         flash('Credenciais inválidas.', 'danger')
     return render_template('login.html', config=g.tenant)
 
 @app.route('/admin')
+@app.route('/<slug>/admin')
 @login_required
-def index_admin():
+def index_admin(slug=None):
     if not g.tenant: abort(404)
     if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == g.tenant.id)):
         abort(403)
