@@ -45,7 +45,7 @@
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('fila_painel', subdomain=config.slug) }}">Fila Digital</a></li>
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('configuracoes', subdomain=config.slug) }}">Configurações</a></li>
                             {% endif %}
-                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') if config else url_for('logout') }}">Sair</a></li>
+                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') }}">Sair</a></li>
                         {% elif getattr(current_user, 'is_superadmin', False) %}
                             <!-- Links para Super Admin -->
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('index_root') }}">Painel Global</a></li>
@@ -53,7 +53,7 @@
                         {% else %}
                             <!-- Links para o Cliente Logado -->
                             <li class="nav-item"><a class="nav-link" href="{{ url_for('index_admin', subdomain=config.slug) }}">Meus Agendamentos</a></li>
-                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') if config else url_for('logout') }}">Sair</a></li>
+                            <li class="nav-item"><a class="nav-link btn btn-outline-danger btn-sm ms-lg-2" href="{{ url_for('logout') }}">Sair</a></li>
                         {% endif %}
                     {% else %}
                         <!-- Links para Visitantes (Não Logados) -->

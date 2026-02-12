@@ -258,6 +258,24 @@ def excluir_barbearia(id):
     flash('Barbearia excluída!', 'warning')
     return redirect(url_for('index_root'))
 
+@app.route('/cadastrar_admin', methods=['POST'])
+@login_required
+def cadastrar_admin():
+    if not hasattr(current_user, 'is_superadmin'): abort(403)
+    username = request.form.get('username_admin')
+    password = request.form.get('password_admin')
+    valida, msg = validar_senha(password)
+    if not valida:
+        flash(msg, 'danger')
+    elif Administrador.query.filter_by(username=username).first():
+        flash('Este usuário administrador já existe.', 'danger')
+    else:
+        novo = Administrador(username=username, password=generate_password_hash(password, method='pbkdf2:sha256'))
+        db.session.add(novo)
+        db.session.commit()
+        flash('Novo administrador cadastrado!', 'success')
+    return redirect(url_for('index_root'))
+
 # --- ROTAS DO TENANT (SUBDOMÍNIO) ---
 
 @app.route('/', subdomain='<subdomain>')
@@ -292,9 +310,31 @@ def agendar(subdomain):
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
     barbeiros = Usuario.query.filter_by(barbearia_id=config.id, is_admin=False).all()
     if request.method == 'POST':
-        # Lógica de agendamento aqui...
+        # Busca ou cria o cliente pelo telefone
+        telefone = request.form.get('telefone')
+        nome = title_case(request.form.get('nome'))
+        cliente = Cliente.query.filter_by(telefone=telefone, barbearia_id=config.id).first()
+        if not cliente:
+            cliente = Cliente(nome=nome, telefone=telefone, barbearia_id=config.id)
+            db.session.add(cliente)
+            db.session.flush()
+        
+        servico_id = request.form.get('servico_id')
+        data_str = request.form.get('data')
+        horario_str = request.form.get('horario')
+        data_hora = datetime.strptime(f"{data_str} {horario_str}", '%Y-%m-%d %H:%M')
+        
+        novo = Agendamento(
+            data_hora=data_hora,
+            cliente_id=cliente.id,
+            servico_id=servico_id,
+            barbearia_id=config.id,
+            barbeiro_id=request.form.get('barbeiro_id')
+        )
+        db.session.add(novo)
+        db.session.commit()
         flash('Agendamento realizado!', 'success')
-        return redirect(url_for('home_cliente', subdomain=subdomain))
+        return redirect(url_for('agendamento_confirmacao', subdomain=subdomain, agendamento_id=novo.id))
     return render_template('cliente_agendar.html', config=config, servicos=servicos, barbeiros=barbeiros)
 
 @app.route('/agendamento/confirmacao/<int:agendamento_id>', subdomain='<subdomain>')
@@ -311,6 +351,60 @@ def listar_agendamentos(subdomain):
     agendamentos = Agendamento.query.filter_by(barbearia_id=config.id).order_by(Agendamento.data_hora.desc()).all()
     return render_template('agendamentos.html', agendamentos=agendamentos, config=config)
 
+@app.route('/admin/agendamento/novo', subdomain='<subdomain>', methods=['GET', 'POST'])
+@login_required
+def novo_agendamento(subdomain):
+    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+    if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == config.id)): abort(403)
+    if request.method == 'POST':
+        # Lógica para admin criar agendamento
+        flash('Agendamento criado!', 'success')
+        return redirect(url_for('listar_agendamentos', subdomain=subdomain))
+    clientes = Cliente.query.filter_by(barbearia_id=config.id).all()
+    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
+    return render_template('agendamento_form.html', config=config, clientes=clientes, servicos=servicos)
+
+@app.route('/agendamento/concluir/<int:id>', subdomain='<subdomain>')
+@login_required
+def concluir_agendamento(subdomain, id):
+    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    agendamento.status = 'Concluído'
+    db.session.commit()
+    flash('Atendimento concluído!', 'success')
+    return redirect(request.referrer or url_for('home_cliente', subdomain=subdomain))
+
+@app.route('/agendamento/cancelar_admin/<int:id>', subdomain='<subdomain>')
+@login_required
+def cancelar_agendamento_admin(subdomain, id):
+    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    agendamento.status = 'Cancelado'
+    db.session.commit()
+    flash('Agendamento cancelado!', 'warning')
+    return redirect(request.referrer or url_for('home_cliente', subdomain=subdomain))
+
+@app.route('/agendamento/cancelar_cliente/<int:id>', subdomain='<subdomain>')
+@login_required
+def cancelar_agendamento_cliente(subdomain, id):
+    agendamento = Agendamento.query.filter_by(id=id, cliente_id=current_user.id).first_or_404()
+    agendamento.status = 'Cancelado'
+    db.session.commit()
+    flash('Seu agendamento foi cancelado.', 'success')
+    return redirect(url_for('index_admin', subdomain=subdomain))
+
+@app.route('/agendamento/alterar_data/<int:id>', subdomain='<subdomain>', methods=['POST'])
+@login_required
+def alterar_data_agendamento(subdomain, id):
+    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+    agendamento = Agendamento.query.filter_by(id=id, barbearia_id=config.id).first_or_404()
+    nova_data = request.form.get('nova_data_hora')
+    if nova_data:
+        agendamento.data_hora = datetime.strptime(nova_data, '%Y-%m-%dT%H:%M')
+        db.session.commit()
+        flash('Data atualizada!', 'success')
+    return redirect(url_for('listar_agendamentos', subdomain=subdomain))
+
 @app.route('/configuracoes', subdomain='<subdomain>', methods=['GET', 'POST'])
 @login_required
 def configuracoes(subdomain):
@@ -323,7 +417,68 @@ def configuracoes(subdomain):
         db.session.commit()
         flash('Configurações atualizadas!', 'success')
     servicos = Servico.query.filter_by(barbearia_id=config.id).all()
-    return render_template('configuracoes.html', config=config, servicos=servicos)
+    barbeiros = Usuario.query.filter_by(barbearia_id=config.id).all()
+    return render_template('configuracoes.html', config=config, servicos=servicos, usuarios=barbeiros)
+
+@app.route('/barbeiro/novo', subdomain='<subdomain>', methods=['POST'])
+@login_required
+def novo_barbeiro(subdomain):
+    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+    username = request.form.get('username')
+    novo = Usuario(username=username, password=generate_password_hash('Barbeiro123'), is_admin=False, barbearia_id=config.id)
+    db.session.add(novo)
+    db.session.commit()
+    flash('Barbeiro adicionado!', 'success')
+    return redirect(url_for('configuracoes', subdomain=subdomain))
+
+@app.route('/barbeiro/editar/<int:id>', subdomain='<subdomain>', methods=['POST'])
+@login_required
+def editar_barbeiro(subdomain, id):
+    barbeiro = Usuario.query.get_or_404(id)
+    barbeiro.username = request.form.get('username')
+    db.session.commit()
+    flash('Barbeiro atualizado!', 'success')
+    return redirect(url_for('configuracoes', subdomain=subdomain))
+
+@app.route('/barbeiro/excluir/<int:id>', subdomain='<subdomain>')
+@login_required
+def excluir_barbeiro(subdomain, id):
+    barbeiro = Usuario.query.get_or_404(id)
+    db.session.delete(barbeiro)
+    db.session.commit()
+    flash('Barbeiro removido!', 'warning')
+    return redirect(url_for('configuracoes', subdomain=subdomain))
+
+@app.route('/servico/novo', subdomain='<subdomain>', methods=['POST'])
+@login_required
+def novo_servico(subdomain):
+    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+    nome = request.form.get('nome')
+    preco = float(request.form.get('preco', 0))
+    novo = Servico(nome=nome, preco=preco, barbearia_id=config.id)
+    db.session.add(novo)
+    db.session.commit()
+    flash('Serviço adicionado!', 'success')
+    return redirect(url_for('configuracoes', subdomain=subdomain))
+
+@app.route('/servico/editar/<int:id>', subdomain='<subdomain>', methods=['POST'])
+@login_required
+def editar_servico(subdomain, id):
+    servico = Servico.query.get_or_404(id)
+    servico.nome = request.form.get('nome')
+    servico.preco = float(request.form.get('preco', 0))
+    db.session.commit()
+    flash('Serviço atualizado!', 'success')
+    return redirect(url_for('configuracoes', subdomain=subdomain))
+
+@app.route('/servico/excluir/<int:id>', subdomain='<subdomain>')
+@login_required
+def excluir_servico(subdomain, id):
+    servico = Servico.query.get_or_404(id)
+    db.session.delete(servico)
+    db.session.commit()
+    flash('Serviço removido!', 'warning')
+    return redirect(url_for('configuracoes', subdomain=subdomain))
 
 @app.route('/clientes', subdomain='<subdomain>')
 @login_required
@@ -333,11 +488,73 @@ def listar_clientes(subdomain):
     clientes = Cliente.query.filter_by(barbearia_id=config.id).all()
     return render_template('clientes.html', clientes=clientes, config=config)
 
-@app.route('/fila', subdomain='<subdomain>')
-def fila_publica(subdomain):
+@app.route('/admin/cliente/novo', subdomain='<subdomain>', methods=['GET', 'POST'])
+@login_required
+def novo_cliente(subdomain):
     config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
-    fila = Fila.query.filter_by(barbearia_id=config.id, status='aguardando').order_by(Fila.posicao).all()
-    return render_template('fila_acompanhar.html', config=config, fila=fila)
+    if request.method == 'POST':
+        # Lógica para criar cliente
+        flash('Cliente cadastrado!', 'success')
+        return redirect(url_for('listar_clientes', subdomain=subdomain))
+    return render_template('cliente_form.html', config=config)
+
+@app.route('/admin/cliente/excluir/<int:id>', subdomain='<subdomain>')
+@login_required
+def excluir_cliente(subdomain, id):
+    cliente = Cliente.query.get_or_404(id)
+    db.session.delete(cliente)
+    db.session.commit()
+    flash('Cliente excluído!', 'warning')
+    return redirect(url_for('listar_clientes', subdomain=subdomain))
+
+@app.route('/fila/painel', subdomain='<subdomain>')
+@login_required
+def fila_painel(subdomain):
+    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+    fila = Fila.query.filter_by(barbearia_id=config.id).order_by(Fila.posicao).all()
+    return render_template('fila_painel.html', config=config, fila=fila)
+
+@app.route('/fila/entrar', subdomain='<subdomain>', methods=['GET', 'POST'])
+def entrar_fila(subdomain):
+    config = Configuracao.query.filter_by(slug=subdomain).first_or_404()
+    if request.method == 'POST':
+        # Lógica para entrar na fila
+        flash('Você entrou na fila!', 'success')
+        return redirect(url_for('home_cliente', subdomain=subdomain))
+    servicos = Servico.query.filter_by(barbearia_id=config.id).all()
+    return render_template('fila_entrar.html', config=config, servicos=servicos)
+
+@app.route('/fila/chamar/<int:id>', subdomain='<subdomain>')
+@login_required
+def fila_chamar(subdomain, id):
+    item = Fila.query.get_or_404(id)
+    item.status = 'chamado'
+    db.session.commit()
+    return redirect(url_for('fila_painel', subdomain=subdomain))
+
+@app.route('/fila/atender/<int:id>', subdomain='<subdomain>')
+@login_required
+def fila_atender(subdomain, id):
+    item = Fila.query.get_or_404(id)
+    item.status = 'atendendo'
+    db.session.commit()
+    return redirect(url_for('fila_painel', subdomain=subdomain))
+
+@app.route('/fila/finalizar/<int:id>', subdomain='<subdomain>')
+@login_required
+def fila_finalizar(subdomain, id):
+    item = Fila.query.get_or_404(id)
+    item.status = 'finalizado'
+    db.session.commit()
+    return redirect(url_for('fila_painel', subdomain=subdomain))
+
+@app.route('/fila/ausente/<int:id>', subdomain='<subdomain>')
+@login_required
+def fila_ausente(subdomain, id):
+    item = Fila.query.get_or_404(id)
+    item.status = 'ausente'
+    db.session.commit()
+    return redirect(url_for('fila_painel', subdomain=subdomain))
 
 @app.route('/logout')
 @login_required
