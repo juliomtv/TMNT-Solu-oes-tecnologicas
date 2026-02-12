@@ -20,8 +20,8 @@ app = Flask(__name__)
 app.config['SERVER_NAME'] = os.getenv('BASE_DOMAIN', 'localhost:5000')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'chave-secreta-barbearia')
 
-# Adiciona hasattr e getattr ao contexto do Jinja2 para uso nos templates
-app.jinja_env.globals.update(hasattr=hasattr, getattr=getattr)
+# Adiciona utilitários ao contexto do Jinja2 para uso nos templates
+app.jinja_env.globals.update(hasattr=hasattr, getattr=getattr, datetime=datetime)
 
 # Configuração do Banco de Dados SQL Server
 connection_string = (
