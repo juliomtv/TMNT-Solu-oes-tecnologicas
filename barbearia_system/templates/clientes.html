@@ -39,7 +39,7 @@
                             </div>
                         </td>
                         <td>
-                            <a href="{{ url_for('excluir_cliente') }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja excluir este cliente e todo o histórico?')">Excluir</a>
+                            <a href="{{ url_for('excluir_cliente', id=cliente.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja excluir este cliente e todo o histórico?')">Excluir</a>
                         </td>
                     </tr>
                     {% endfor %}

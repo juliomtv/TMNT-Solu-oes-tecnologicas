@@ -307,7 +307,18 @@ def index_admin():
     if not g.tenant: abort(404)
     if not (hasattr(current_user, 'is_superadmin') or (getattr(current_user, 'barbearia_id', None) == g.tenant.id)):
         abort(403)
-    return render_template('cliente_painel.html', config=g.tenant)
+    
+    # Se for um administrador ou superadmin, mostra a agenda do dia (index.html)
+    if getattr(current_user, 'is_admin', False) or hasattr(current_user, 'is_superadmin'):
+        agendamentos = Agendamento.query.filter(
+            Agendamento.barbearia_id == g.tenant.id,
+            db.func.date(Agendamento.data_hora) == datetime.now().date()
+        ).order_by(Agendamento.data_hora.asc()).all()
+        return render_template('index.html', config=g.tenant, agendamentos=agendamentos)
+    
+    # Se for um cliente, mostra o painel do cliente
+    agendamentos = Agendamento.query.filter_by(cliente_id=current_user.id).order_by(Agendamento.data_hora.desc()).all()
+    return render_template('cliente_painel.html', config=g.tenant, cliente=current_user, agendamentos=agendamentos)
 
 @app.route('/agendar', methods=['GET', 'POST'])
 def agendar():
@@ -375,7 +386,7 @@ def concluir_agendamento(id):
     agendamento.status = 'Concluído'
     db.session.commit()
     flash('Atendimento concluído!', 'success')
-    return redirect(request.referrer or url_for('home_cliente'))
+    return redirect(request.referrer or url_for('index_admin'))
 
 @app.route('/agendamento/cancelar_admin/<int:id>')
 @login_required
@@ -385,7 +396,7 @@ def cancelar_agendamento_admin(id):
     agendamento.status = 'Cancelado'
     db.session.commit()
     flash('Agendamento cancelado!', 'warning')
-    return redirect(request.referrer or url_for('home_cliente'))
+    return redirect(request.referrer or url_for('index_admin'))
 
 @app.route('/agendamento/cancelar_cliente/<int:id>')
 @login_required
