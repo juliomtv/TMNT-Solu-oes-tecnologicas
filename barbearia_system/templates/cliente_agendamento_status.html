@@ -66,12 +66,12 @@
 
                 <!-- Ações -->
                 <div class="d-grid gap-2 d-md-block">
-                    <a href="{{ url_for('home_cliente', slug=config.slug) }}" class="btn btn-outline-secondary">Voltar ao Início</a>
-                    <a href="{{ url_for('login_cliente', slug=config.slug) }}" class="btn btn-primary">Ver Meus Agendamentos</a>
+                    <a href="{{ url_for('home_cliente', subdomain=config.slug) }}" class="btn btn-outline-secondary">Voltar ao Início</a>
+                    <a href="{{ url_for('login_cliente', subdomain=config.slug) }}" class="btn btn-primary">Ver Meus Agendamentos</a>
                 </div>
                 
                 <div class="mt-4">
-                    <small class="text-muted">Deseja ter acesso rápido e ganhar prêmios? <a href="{{ url_for('login_cliente', slug=config.slug) }}">Acesse seu painel aqui</a>.</small>
+                    <small class="text-muted">Deseja ter acesso rápido e ganhar prêmios? <a href="{{ url_for('login_cliente', subdomain=config.slug) }}">Acesse seu painel aqui</a>.</small>
                 </div>
             </div>
         </div>

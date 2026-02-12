@@ -23,8 +23,8 @@
                     
                     <!-- Botões de ação principal -->
                     <div class="d-grid gap-2 mt-4">
-                        <a href="{{ url_for('agendar_cliente', slug=config.slug) }}" class="btn btn-primary btn-lg">Agendar Horário</a>
-                        <a href="{{ url_for('entrar_fila', slug=config.slug) }}" class="btn btn-outline-light btn-lg">Entrar na Fila Agora</a>
+                        <a href="{{ url_for('agendar_cliente', subdomain=config.slug) }}" class="btn btn-primary btn-lg">Agendar Horário</a>
+                        <a href="{{ url_for('entrar_fila', subdomain=config.slug) }}" class="btn btn-outline-light btn-lg">Entrar na Fila Agora</a>
                     </div>
                 </div>
             </div>
