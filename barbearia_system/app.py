@@ -668,8 +668,8 @@ def entrar_fila():
         db.session.add(novo_item)
         db.session.commit()
         
-        flash('Você entrou na fila! Aguarde ser chamado.', 'success')
-        return redirect(url_for('home_cliente'))
+        flash('Você entrou na fila! Acompanhe sua posição abaixo.', 'success')
+        return redirect(url_for('fila_acompanhar', id=novo_item.id))
     servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
     barbeiros = Usuario.query.filter_by(barbearia_id=g.tenant.id).all()
     return render_template('fila_entrar.html', config=g.tenant, servicos=servicos, barbeiros=barbeiros)
@@ -715,6 +715,64 @@ def fila_ausente(id):
 def logout():
     logout_user()
     return redirect(url_for('index_root'))
+
+
+
+@app.route('/fila/acompanhar/<int:id>')
+def fila_acompanhar(id):
+    if not g.tenant: abort(404)
+    item = Fila.query.filter_by(id=id, barbearia_id=g.tenant.id).first_or_404()
+    
+    # Calcula quantas pessoas estão na frente (status 'aguardando' e id menor)
+    faltam = Fila.query.filter(
+        Fila.barbearia_id == g.tenant.id,
+        Fila.status == 'aguardando',
+        Fila.id < item.id
+    ).count()
+    
+    # Tempo estimado: 20 min por pessoa na frente
+    tempo_estimado = faltam * 20
+    
+    return render_template('fila_acompanhar.html', config=g.tenant, item=item, faltam=faltam, tempo_estimado=tempo_estimado)
+
+@app.route('/api/<slug>/fila/status/<int:id>')
+def api_fila_status(slug, id):
+    tenant = Configuracao.query.filter_by(slug=slug).first_or_404()
+    item = Fila.query.filter_by(id=id, barbearia_id=tenant.id).first_or_404()
+    
+    faltam = Fila.query.filter(
+        Fila.barbearia_id == tenant.id,
+        Fila.status == 'aguardando',
+        Fila.id < item.id
+    ).count()
+    
+    return jsonify({
+        'posicao': item.posicao,
+        'status': item.status,
+        'faltam': faltam,
+        'tempo_estimado': faltam * 20
+    })
+
+@app.route('/api/<slug>/horarios_ocupados')
+def api_horarios_ocupados(slug):
+    tenant = Configuracao.query.filter_by(slug=slug).first_or_404()
+    data_str = request.args.get('data')
+    if not data_str:
+        return jsonify([])
+    
+    data_consulta = datetime.strptime(data_str, '%Y-%m-%d').date()
+    inicio_dia = datetime.combine(data_consulta, datetime.min.time())
+    fim_dia = datetime.combine(data_consulta, datetime.max.time())
+    
+    agendamentos = Agendamento.query.filter(
+        Agendamento.barbearia_id == tenant.id,
+        Agendamento.data_hora >= inicio_dia,
+        Agendamento.data_hora <= fim_dia,
+        Agendamento.status != 'Cancelado'
+    ).all()
+    
+    ocupados = [a.data_hora.strftime('%H:%M') for a in agendamentos]
+    return jsonify(ocupados)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
