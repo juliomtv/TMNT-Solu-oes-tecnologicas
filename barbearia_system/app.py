@@ -647,15 +647,38 @@ def fila_painel():
 def entrar_fila():
     if not g.tenant: abort(404)
     if request.method == 'POST':
-        flash('Você entrou na fila!', 'success')
+        nome = request.form.get('nome')
+        whatsapp = request.form.get('whatsapp')
+        servico_id = request.form.get('servico_id')
+        barbeiro_id = request.form.get('barbeiro_id')
+        
+        # Calcula a última posição na fila
+        ultima_posicao = db.session.query(db.func.max(Fila.posicao)).filter_by(barbearia_id=g.tenant.id).scalar() or 0
+        nova_posicao = ultima_posicao + 1
+        
+        novo_item = Fila(
+            cliente_nome=nome,
+            whatsapp=whatsapp,
+            servico_id=servico_id,
+            barbearia_id=g.tenant.id,
+            barbeiro_id=barbeiro_id if barbeiro_id else None,
+            posicao=nova_posicao,
+            status='aguardando'
+        )
+        db.session.add(novo_item)
+        db.session.commit()
+        
+        flash('Você entrou na fila! Aguarde ser chamado.', 'success')
         return redirect(url_for('home_cliente'))
     servicos = Servico.query.filter_by(barbearia_id=g.tenant.id).all()
-    return render_template('fila_entrar.html', config=g.tenant, servicos=servicos)
+    barbeiros = Usuario.query.filter_by(barbearia_id=g.tenant.id).all()
+    return render_template('fila_entrar.html', config=g.tenant, servicos=servicos, barbeiros=barbeiros)
 
 @app.route('/fila/chamar/<int:id>')
 @login_required
 def fila_chamar(id):
-    item = Fila.query.get_or_404(id)
+    if not g.tenant: abort(404)
+    item = Fila.query.filter_by(id=id, barbearia_id=g.tenant.id).first_or_404()
     item.status = 'chamado'
     db.session.commit()
     return redirect(url_for('fila_painel'))
@@ -663,7 +686,8 @@ def fila_chamar(id):
 @app.route('/fila/atender/<int:id>')
 @login_required
 def fila_atender(id):
-    item = Fila.query.get_or_404(id)
+    if not g.tenant: abort(404)
+    item = Fila.query.filter_by(id=id, barbearia_id=g.tenant.id).first_or_404()
     item.status = 'atendendo'
     db.session.commit()
     return redirect(url_for('fila_painel'))
@@ -671,7 +695,8 @@ def fila_atender(id):
 @app.route('/fila/finalizar/<int:id>')
 @login_required
 def fila_finalizar(id):
-    item = Fila.query.get_or_404(id)
+    if not g.tenant: abort(404)
+    item = Fila.query.filter_by(id=id, barbearia_id=g.tenant.id).first_or_404()
     item.status = 'finalizado'
     db.session.commit()
     return redirect(url_for('fila_painel'))
@@ -679,7 +704,8 @@ def fila_finalizar(id):
 @app.route('/fila/ausente/<int:id>')
 @login_required
 def fila_ausente(id):
-    item = Fila.query.get_or_404(id)
+    if not g.tenant: abort(404)
+    item = Fila.query.filter_by(id=id, barbearia_id=g.tenant.id).first_or_404()
     item.status = 'ausente'
     db.session.commit()
     return redirect(url_for('fila_painel'))

@@ -31,8 +31,8 @@
                     <label class="form-label">Escolha o Barbeiro (Opcional)</label>
                     <select name="barbeiro_id" class="form-select">
                         <option value="">Qualquer Barbeiro</option>
-                        {% for usuario in config.usuarios %}
-                        <option value="{{ usuario.id }}">{{ usuario.username }}</option>
+                        {% for barbeiro in barbeiros %}
+                        <option value="{{ barbeiro.id }}">{{ barbeiro.username }}</option>
                         {% endfor %}
                     </select>
                 </div>

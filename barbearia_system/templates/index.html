@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<!-- Alerta de Fila Digital -->
+<div id="fila-alert-container"></div>
+
 <!-- Painel Administrativo da Unidade - Agenda do Dia -->
 <div class="row mb-4">
     <div class="col-md-8">
@@ -66,4 +69,32 @@
         </div>
     </div>
 </div>
+<script>
+    // Função para verificar se há novos itens na fila
+    function checkFila() {
+        fetch("{{ url_for('fila_painel') }}")
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const hasItems = doc.querySelector('tbody tr:not(:last-child)') || !doc.querySelector('td[colspan="6"]');
+                
+                const container = document.getElementById('fila-alert-container');
+                if (hasItems) {
+                    container.innerHTML = `
+                        <div class="alert alert-info d-flex justify-content-between align-items-center shadow-sm mb-4">
+                            <span><strong><i class="bi bi-people-fill"></i> Fila Digital:</strong> Existem clientes aguardando na fila!</span>
+                            <a href="{{ url_for('fila_painel') }}" class="btn btn-info btn-sm">Ver Fila Digital</a>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '';
+                }
+            });
+    }
+
+    // Verifica a cada 30 segundos
+    setInterval(checkFila, 30000);
+    checkFila(); // Verifica ao carregar
+</script>
 {% endblock %}
