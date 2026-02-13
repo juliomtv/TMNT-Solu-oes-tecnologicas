@@ -176,23 +176,27 @@ def get_tenant():
         return
     
     # Host atual da requisição (ex: barbearia.abc.ngrok-free.app)
-    host = request.host.split(':')[0]
+    # Mantemos a porta para comparação se ela estiver no BASE_DOMAIN
+    host_full = request.host
+    host_only = host_full.split(':')[0]
     
-    # Se o BASE_DOMAIN não estiver no .env, usamos o host atual como base
+    # O BASE_DOMAIN é lido do .env (ex: localhost:5000 ou tmnt.com.br)
     base_domain = app.config.get('BASE_DOMAIN')
-    if not base_domain:
-        # O base_domain é o host atual (sem subdomínios se possível, mas o request.host resolve)
-        base_domain = request.host
-
+    
     subdomain = None
-    # Se o host termina com o domínio base e não é igual a ele
-    if base_domain and host.endswith(base_domain) and host != base_domain:
-        # O subdomínio é tudo o que vem antes do domínio base
-        subdomain = host.replace(f".{base_domain}", "")
-    # Caso especial para ngrok se a lógica acima falhar
-    elif 'ngrok' in host:
-        parts = host.split('.')
+    if base_domain:
+        # Se o host atual termina com o domínio base e há algo antes (o subdomínio)
+        if host_full.endswith(base_domain) and host_full != base_domain:
+            subdomain = host_full.replace(f".{base_domain}", "")
+    
+    # Fallback para detecção de subdomínio genérica (ex: sub.domain.com -> sub)
+    if not subdomain:
+        parts = host_only.split('.')
+        # Se tiver 3 partes (sub.dominio.com) ou for ngrok (sub.ngrok-free.app)
         if len(parts) >= 3:
+            subdomain = parts[0]
+        # Se for localhost com subdomínio (ex: barbearia.localhost)
+        elif len(parts) == 2 and parts[1] == 'localhost':
             subdomain = parts[0]
         
     if subdomain:
@@ -266,8 +270,10 @@ def login_master():
         password = request.form.get('password')
         admin = Administrador.query.filter_by(username=username).first()
         if admin and check_password_hash(admin.password, password):
-            login_user(admin)
-            return redirect(url_for('index_root'))
+            login_user(admin, remember=True)
+            # Se o usuário estava tentando acessar uma barbearia específica, podemos redirecionar de volta
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('index_root'))
         flash('Acesso negado.', 'danger')
     return render_template('login_global.html')
 
@@ -278,7 +284,7 @@ def index_root():
     
     # Se não houver tenant (acesso ao domínio principal), exige login do Master Admin
     if not current_user.is_authenticated or not hasattr(current_user, 'is_superadmin'):
-        return redirect(url_for('login_master'))
+        return redirect(url_for('login_master', next=request.url))
     
     barbearias = Configuracao.query.all()
     return render_template('index_global.html', barbearias=barbearias)
