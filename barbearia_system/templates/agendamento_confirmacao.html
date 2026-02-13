@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 text-center">
+        <div class="card p-5 shadow-lg border-0" style="border-radius: 20px;">
+            <div class="mb-4">
+                <div class="bg-success text-white d-inline-block rounded-circle p-3 mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-check-lg" viewBox="0 0 16 16">
+                        <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.42-6.446z"/>
+                    </svg>
+                </div>
+                <h2 class="fw-bold">Agendamento Confirmado!</h2>
+                <p class="text-muted lead">Seu horário foi reservado com sucesso.</p>
+            </div>
+
+            <div class="bg-light p-4 rounded-3 mb-4 text-start">
+                <div class="mb-2">
+                    <small class="text-uppercase text-muted fw-bold">Serviço</small>
+                    <p class="mb-0 fs-5">{{ agendamento.servico.nome }}</p>
+                </div>
+                <div class="mb-2">
+                    <small class="text-uppercase text-muted fw-bold">Data e Horário</small>
+                    <p class="mb-0 fs-5">{{ agendamento.data_hora.strftime('%d/%m/%Y às %H:%M') }}</p>
+                </div>
+                <div class="mb-0">
+                    <small class="text-uppercase text-muted fw-bold">Barbeiro</small>
+                    <p class="mb-0 fs-5">{{ agendamento.barbeiro.username if agendamento.barbeiro else 'Qualquer Barbeiro' }}</p>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2">
+                <a href="{{ url_for('home_cliente') }}" class="btn btn-primary btn-lg">Voltar ao Início</a>
+                <p class="small text-muted mt-3">Você pode consultar seus agendamentos fazendo login com seu telefone.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
